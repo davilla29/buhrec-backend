@@ -17,7 +17,7 @@ const reviewAssignmentSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["assigned", "in_progress", "submitted", "withdrawn"],
+      enum: ["assigned", "accepted", "rejected", "in_progress", "submitted", "withdrawn"],
       default: "assigned",
       index: true,
     },

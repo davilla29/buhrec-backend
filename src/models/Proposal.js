@@ -10,6 +10,7 @@ const proposalSchema = new mongoose.Schema(
     },
 
     title: { type: String, required: true, trim: true },
+    applicationId: { type: String, required: true, unique: true, index: true },
 
     status: {
       type: String,
