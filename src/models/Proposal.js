@@ -28,6 +28,7 @@ const proposalSchema = new mongoose.Schema(
 
     // set when first submitted
     submittedAt: { type: Date },
+    assignedAt: { type: Date },
     approvedAt: { type: Date },
     rejectedAt: { type: Date },
 
