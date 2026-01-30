@@ -3,12 +3,8 @@ import express from "express";
 import {
   login,
   logout,
-  refresh,
-  forgotPassword,
-  resetPassword,
+  checkAuth,
   researcherRegister,
-  inviteUser,
-  acceptInvite,
 } from "../controllers/auth.controller.js";
 
 import { verifyToken, isAdmin } from "../middlewares/authMiddleware.js";
@@ -24,6 +20,9 @@ router.post("/login", login);
 router.post("/researcher/register", researcherRegister);
 
 router.use(verifyToken);
+
+// Check if user is logged in
+router.get("/check-auth", verifyToken, checkAuth);
 
 // Adding reviewer
 router.post("/add-reviewer", isAdmin, addReviewer);
