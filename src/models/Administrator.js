@@ -14,7 +14,7 @@ const administratorSchema = new mongoose.Schema(
     fName: { type: String, required: true, trim: true },
     lName: { type: String, required: true, trim: true },
 
-    role: { type: String, default: "administrator", immutable: true },
+    role: { type: String, default: "admin", immutable: true },
 
     permissions: {
       type: [String],

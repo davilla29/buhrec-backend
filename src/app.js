@@ -2,7 +2,7 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 
-// import authRoutes from "./routes/auth.route.js";
+import authRoutes from "./routes/auth.route.js";
 
 
 const app = express();
@@ -21,7 +21,7 @@ app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
 
 // API Routes
-// app.use("/api/auth", authRoutes);
+app.use("/api/auth", authRoutes);
 
 // 404 Handler for unknown API routes
 app.use((req, res, next) => {
