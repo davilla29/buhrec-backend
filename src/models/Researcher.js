@@ -2,6 +2,9 @@ import mongoose from "mongoose";
 
 const researcherSchema = new mongoose.Schema(
   {
+    title: { type: String, trim: true },
+    fName: { type: String, required: true, trim: true },
+    lName: { type: String, required: true, trim: true },
     email: {
       type: String,
       required: true,
@@ -10,13 +13,11 @@ const researcherSchema = new mongoose.Schema(
       trim: true,
       index: true,
     },
-    password: { type: String, required: true, select: false }, // store hashed password
-    fName: { type: String, required: true, trim: true },
-    lName: { type: String, required: true, trim: true },
+    password: { type: String, required: true, select: false },
 
-    institution: { type: String, required: true, trim: true }, // FR-1
-    department: { type: String, trim: true }, // FR-2
-    phone: { type: String, trim: true }, // FR-2
+    institution: { type: String, required: true, trim: true },
+    department: { type: String, trim: true },
+    phone: { type: String, trim: true },
 
     experience: { type: String, trim: true },
     role: { type: String, default: "researcher", immutable: true },

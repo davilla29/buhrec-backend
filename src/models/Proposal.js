@@ -10,6 +10,7 @@ const proposalSchema = new mongoose.Schema(
     },
 
     title: { type: String, required: true, trim: true },
+    applicationId: { type: String, required: true, unique: true, index: true },
 
     status: {
       type: String,
@@ -27,6 +28,7 @@ const proposalSchema = new mongoose.Schema(
 
     // set when first submitted
     submittedAt: { type: Date },
+    assignedAt: { type: Date },
     approvedAt: { type: Date },
     rejectedAt: { type: Date },
 
