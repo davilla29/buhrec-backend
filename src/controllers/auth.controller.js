@@ -88,6 +88,7 @@ class AuthController {
         );
       } catch (_) {}
 
+      // create a copy of the user object and remove the password from the copy.
       const safeUser = { ...user };
       delete safeUser.password;
 
@@ -99,6 +100,62 @@ class AuthController {
     } catch (error) {
       console.error("Login error:", error);
       return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+
+  // Researcher Register
+  static async researcherRegister(req, res) {
+    try {
+      const {
+        title,
+        fName,
+        lName,
+        email,
+        password,
+        institution,
+        department,
+        phone,
+        experience,
+      } = req.body;
+
+      if (!fName || !lName || !email || !password || !institution) {
+        return res.status(400).json({
+          success: false,
+          message: "Fill out all required fields",
+        });
+      }
+
+      const exists = await emailExistsAnywhere(email);
+      if (exists) {
+        return res
+          .status(409)
+          .json({ success: false, message: "Email already in use" });
+      }
+
+      const hashed = await bcrypt.hash(password, 12);
+
+      const researcher = await Researcher.create({
+        title,
+        fName,
+        lName,
+        email,
+        password: hashed,
+        institution,
+        department,
+        phone,
+        experience,
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Researcher registered successfully",
+        data: sanitize(researcher),
+      });
+    } catch (error) {
+      console.error("Register error:", error);
+      return res
+        .status(500)
+        .json({ success: false, message: "Internal server error." });
     }
   }
 }
