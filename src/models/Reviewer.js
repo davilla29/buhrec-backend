@@ -1,3 +1,4 @@
+// models/Reviewer.js
 import mongoose from "mongoose";
 
 const reviewerSchema = new mongoose.Schema(
@@ -11,14 +12,21 @@ const reviewerSchema = new mongoose.Schema(
       index: true,
     },
     password: { type: String, required: true, select: false },
-    fName: { type: String, required: true, trim: true },
-    lName: { type: String, required: true, trim: true },
 
-    institution: { type: String, trim: true },
-    department: { type: String, trim: true },
+    // matches UI: single name input
+    fullName: { type: String, required: true, trim: true },
 
-    expertise: [{ type: String, trim: true }], // e.g. "Public Health", "AI", "Clinical Trials"
-    experience: { type: String, trim: true },
+    institution: { type: String, required: true, trim: true },
+
+    title: { type: String, required: true, trim: true }, // "Reviewer Title"
+    specialization: { type: String, required: true, trim: true }, // dropdown value
+    yearsOfExperience: { type: Number, required: true, min: 0 },
+
+    // photo stored directly in MongoDB
+    photo: {
+      data: Buffer,
+      contentType: String,
+    },
 
     role: { type: String, default: "reviewer", immutable: true },
 

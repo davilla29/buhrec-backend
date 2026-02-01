@@ -1,33 +1,27 @@
 // routes/auth.routes.js
 import express from "express";
-import {
-  login,
-  logout,
-  checkAuth,
-  researcherRegister,
-} from "../controllers/auth.controller.js";
-
-import { verifyToken, isAdmin } from "../middlewares/authMiddleware.js";
+import AuthController from "../controllers/auth.controller.js";
+import { verifyToken } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
-/**
- * Public/common auth
- */
-router.post("/login", login);
+// Public/common auth
+router.post("/login", AuthController.login);
 
-// Researcher signup
-router.post("/researcher/register", researcherRegister);
+// Researcher signup (matches the UI)
+router.post("/researcher/register", AuthController.researcherRegister);
 
-router.use(verifyToken);
+// Admin signup
+router.post("/admin/register", AuthController.createAdminAccount);
 
-// Check if user is logged in
-router.get("/check-auth", verifyToken, checkAuth);
+// Verify email
+router.post("/verify-email", AuthController.verifyEmail);
 
-// Adding reviewer
-router.post("/add-reviewer", isAdmin, addReviewer);
+// Resending verification code
+router.post("/resend-verification-code", AuthController.resendVerificationCode);
 
-// Logout
-router.post("/logout", logout);
+// Protected
+router.get("/check-auth", verifyToken, AuthController.checkAuth);
+router.post("/logout", AuthController.logout);
 
 export default router;
