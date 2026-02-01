@@ -2,7 +2,7 @@
 import express from "express";
 import { verifyToken, isResearcher } from "../middlewares/authMiddleware.js";
 import { uploadProposalDocs } from "../middlewares/uploadProposalDocs.js";
-import { ProposalController } from "../controllers/proposalController.js";
+import { ProposalController } from "../controllers/proposal.controller.js";
 
 const router = express.Router();
 
