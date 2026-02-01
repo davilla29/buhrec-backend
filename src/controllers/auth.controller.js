@@ -232,7 +232,7 @@ class AuthController {
         });
       }
 
-      const hashed = await bcrypt.hash(password, 12);
+      const hashedPassword = await bcrypt.hash(password, 12);
 
       // generate OTP for verification
       const verificationCode = generateVerificationCode();
@@ -251,8 +251,24 @@ class AuthController {
         verificationTokenExpiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 mins
       });
 
-      // TODO: send verification code email
-      // await sendVerificationEmail(researcher.email, researcher.fullName, verificationCode);
+      // Send verification email
+      try {
+        const frontendUrl =
+          process.env.NODE_ENV === "development"
+            ? process.env.FRONTEND_URL_DEV
+            : process.env.FRONTEND_URL_PROD;
+
+        const verificationLink = `${frontendUrl}/verify-email`;
+
+        await sendVerificationCodeEmail({
+          fullName: researcher.fullName,
+          userEmail: researcher.email,
+          verificationCode,
+          verificationLink,
+        });
+      } catch (mailErr) {
+        console.error("Failed to send verification email:", mailErr);
+      }
 
       return res.status(201).json({
         success: true,
