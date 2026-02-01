@@ -45,5 +45,11 @@ router.patch(
   AdminController.reactivateReviewer,
 );
 
+router.patch(
+  "/review-assignments/:assignmentId/reassign",
+  verifyToken,
+  isAdmin,
+  AdminController.reassignSingleAssignment,
+);
 
 export default router;

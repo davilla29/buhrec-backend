@@ -279,7 +279,6 @@ class AdminController {
     }
   }
 
-  // controllers/admin.controller.js
   static async deactivateReviewer(req, res) {
     try {
       const { id } = req.params;
@@ -335,6 +334,61 @@ class AdminController {
       });
     } catch (error) {
       console.error("Reactivate reviewer error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server error",
+      });
+    }
+  }
+
+  static async reassignSingleAssignment(req, res) {
+    try {
+      const { assignmentId } = req.params;
+      const { newReviewerId } = req.body;
+
+      if (!newReviewerId) {
+        return res.status(400).json({
+          success: false,
+          message: "newReviewerId is required",
+        });
+      }
+
+      const newReviewer = await Reviewer.findById(newReviewerId);
+      if (!newReviewer || !newReviewer.isActive) {
+        return res.status(400).json({
+          success: false,
+          message: "New reviewer must exist and be active",
+        });
+      }
+
+      const assignment = await ReviewAssignment.findById(assignmentId);
+
+      if (!assignment) {
+        return res.status(404).json({
+          success: false,
+          message: "Assignment not found",
+        });
+      }
+
+      if (["submitted", "rejected", "withdrawn"].includes(assignment.status)) {
+        return res.status(400).json({
+          success: false,
+          message: "This assignment can no longer be reassigned",
+        });
+      }
+
+      assignment.reviewer = newReviewerId;
+      assignment.assignedAt = new Date();
+
+      await assignment.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Assignment reassigned successfully",
+        data: assignment,
+      });
+    } catch (error) {
+      console.error("Reassign single assignment error:", error);
       return res.status(500).json({
         success: false,
         message: "Server error",
