@@ -11,6 +11,9 @@ router.post("/login", AuthController.login);
 // Researcher signup (matches the UI)
 router.post("/researcher/register", AuthController.researcherRegister);
 
+// Admin signup
+router.post("/admin/register", AuthController.createAdminAccount);
+
 // Verify email
 router.post("/verify-email", AuthController.verifyEmail);
 

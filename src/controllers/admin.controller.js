@@ -101,9 +101,6 @@ class AdminController {
 
       const loginLink = `${frontendUrl}/admin/login`;
 
-      // TODO: send email with generated password (your existing mailer)
-      // await sendReviewerWelcomeEmail(reviewer.email, password);
-
       // ✅ Email reviewer their account details
       try {
         await sendAccountCreationEmail({

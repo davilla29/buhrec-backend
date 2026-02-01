@@ -285,6 +285,66 @@ class AuthController {
     }
   }
 
+  // Admin register
+  static async createAdminAccount(req, res) {
+    try {
+      const { fullName, email, secret } = req.body;
+
+      // 🔐 Secret protection
+      if (!secret || secret !== process.env.ADMIN_BOOTSTRAP_SECRET) {
+        return res.status(403).json({
+          success: false,
+          message: "Unauthorized",
+        });
+      }
+
+      if (!fullName || !email) {
+        return res.status(400).json({
+          success: false,
+          message: "fullName and email are required",
+        });
+      }
+
+      const normalizedEmail = email.trim().toLowerCase();
+
+      // Prevent duplicates
+      const exists = await Administrator.exists({ email: normalizedEmail });
+      if (exists) {
+        return res.status(409).json({
+          success: false,
+          message: "Admin with this email already exists",
+        });
+      }
+
+      // Generate password
+      const generatedPassword = crypto.randomBytes(8).toString("base64");
+      const hashedPassword = await bcrypt.hash(generatedPassword, 12);
+
+      // Create admin
+      const admin = await Administrator.create({
+        fullName: fullName.trim(),
+        email: normalizedEmail,
+        password: hashedPassword,
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Admin account created successfully.",
+        data: {
+          id: admin._id,
+          email: admin.email,
+          fullName: admin.fullName,
+        },
+      });
+    } catch (error) {
+      console.error("Create admin error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server error",
+      });
+    }
+  }
+
   // Verify Email
   static async verifyEmail(req, res) {
     try {
