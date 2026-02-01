@@ -147,6 +147,160 @@ class ProposalController {
       return res.status(500).json({ success: false, message: err.message });
     }
   }
+
+  // Initiate payment (7000 fixed) AFTER requirements are met
+  static async initPayment(req, res) {
+    try {
+      const { proposalId } = req.params;
+
+      const proposal = await Proposal.findOne({
+        _id: proposalId,
+        researcher: req.userId,
+      });
+
+      if (!proposal)
+        return res
+          .status(404)
+          .json({ success: false, message: "Proposal not found" });
+
+      if (proposal.payment?.status === "paid" || proposal.status === "Paid") {
+        return res
+          .status(400)
+          .json({ success: false, message: "Already paid" });
+      }
+
+      const draft = await ProposalVersion.findOne({
+        proposal: proposal._id,
+        versionNumber: 0,
+      });
+
+      if (!draft) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Save a draft first" });
+      }
+
+      const requirementError = validateDraftRequirements(draft);
+      if (requirementError) {
+        return res
+          .status(400)
+          .json({ success: false, message: requirementError });
+      }
+
+      // mark awaiting payment
+      proposal.status = "Awaiting Payment";
+      proposal.payment.status = "pending";
+
+      // txRef you can track back to proposal reliably
+      proposal.payment.txRef = `TX-${proposal.applicationId}-${Date.now()}`;
+
+      await proposal.save();
+
+      // Call Flutterwave initialize payment
+      // Return payment link to frontend (it opens it)
+      // You will implement flutterwave service using your secret key
+      const paymentLink = await req.flutterwave.init({
+        amount: 7000,
+        currency: "NGN",
+        tx_ref: proposal.payment.txRef,
+        customer: { email: req.user.email, name: req.user.fullName },
+        meta: {
+          proposalId: proposal._id.toString(),
+          applicationId: proposal.applicationId,
+        },
+        redirect_url: `${process.env.API_BASE_URL}/api/payments/flutterwave/callback`,
+      });
+
+      return res.status(200).json({
+        success: true,
+        amount: 7000,
+        currency: "NGN",
+        txRef: proposal.payment.txRef,
+        paymentLink,
+      });
+    } catch (err) {
+      console.log("initPayment error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  // Submit initial version (v1) after payment success
+  static async submitInitial(req, res) {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+      const { proposalId } = req.params;
+
+      const proposal = await Proposal.findOne({
+        _id: proposalId,
+        researcher: req.userId,
+      }).session(session);
+
+      if (!proposal)
+        return res
+          .status(404)
+          .json({ success: false, message: "Proposal not found" });
+
+      if (proposal.payment?.status !== "paid" || proposal.status !== "Paid") {
+        return res.status(400).json({
+          success: false,
+          message: "Payment required before submission",
+        });
+      }
+
+      if (proposal.versionCount > 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Already submitted. Use version update flow if requested.",
+        });
+      }
+
+      const draft = await ProposalVersion.findOne({
+        proposal: proposal._id,
+        versionNumber: 0,
+      }).session(session);
+
+      if (!draft)
+        return res
+          .status(400)
+          .json({ success: false, message: "Draft not found" });
+
+      // create version 1 snapshot from draft
+      const v1 = await ProposalVersion.create(
+        [
+          {
+            proposal: proposal._id,
+            versionNumber: 1,
+            kind: "submitted",
+            formData: draft.formData,
+            documents: draft.documents,
+            changeNote: "Initial submission",
+            createdBy: req.userId,
+            submittedAt: new Date(),
+          },
+        ],
+        { session },
+      );
+
+      proposal.currentVersion = v1[0]._id;
+      proposal.versionCount = 1;
+      proposal.submittedAt = new Date();
+      proposal.status = "Waiting to be assigned";
+
+      await proposal.save({ session });
+
+      await session.commitTransaction();
+      session.endSession();
+
+      return res.status(200).json({ success: true, proposal, version: v1[0] });
+    } catch (err) {
+      await session.abortTransaction();
+      session.endSession();
+      console.log("submitInitial error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
 }
 
 export default ProposalController;

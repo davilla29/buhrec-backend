@@ -21,6 +21,7 @@ const proposalSchema = new mongoose.Schema(
         "Draft",
         "Awaiting Payment",
         "Paid", // <-- added (ready-to-submit)
+        "Waiting to be assigned",
         "Under Review",
         "Awaiting Modifications",
         "Rejected",
