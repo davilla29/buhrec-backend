@@ -278,6 +278,69 @@ class AdminController {
       });
     }
   }
+
+  // controllers/admin.controller.js
+  static async deactivateReviewer(req, res) {
+    try {
+      const { id } = req.params;
+
+      const reviewer = await Reviewer.findByIdAndUpdate(
+        id,
+        { isActive: false },
+        { new: true },
+      ).select("fullName isActive");
+
+      if (!reviewer) {
+        return res.status(404).json({
+          success: false,
+          message: "Reviewer not found",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Reviewer deactivated successfully",
+        data: reviewer,
+      });
+    } catch (error) {
+      console.error("Deactivate reviewer error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server error",
+      });
+    }
+  }
+
+  static async reactivateReviewer(req, res) {
+    try {
+      const { id } = req.params;
+
+      const reviewer = await Reviewer.findByIdAndUpdate(
+        id,
+        { isActive: true },
+        { new: true },
+      ).select("fullName isActive");
+
+      if (!reviewer) {
+        return res.status(404).json({
+          success: false,
+          message: "Reviewer not found",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Reviewer reactivated successfully",
+        data: reviewer,
+      });
+    } catch (error) {
+      console.error("Reactivate reviewer error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server error",
+      });
+    }
+  }
 }
 
 export default AdminController;

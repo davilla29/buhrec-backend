@@ -31,4 +31,19 @@ router.post(
   AdminController.addReviewer,
 );
 
+router.patch(
+  "/reviewers/:id/deactivate",
+  verifyToken,
+  isAdmin,
+  AdminController.deactivateReviewer,
+);
+
+router.patch(
+  "/reviewers/:id/reactivate",
+  verifyToken,
+  isAdmin,
+  AdminController.reactivateReviewer,
+);
+
+
 export default router;
