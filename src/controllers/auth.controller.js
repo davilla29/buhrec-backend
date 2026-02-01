@@ -251,6 +251,59 @@ class AuthController {
     }
   }
 
+  // Verify Email
+  static async verifyEmail(req, res) {
+    try {
+      const email = req.body?.email?.trim()?.toLowerCase();
+      const { code } = req.body;
+
+      if (!email || !code) {
+        return res.status(400).json({
+          success: false,
+          message: "email and code are required",
+        });
+      }
+
+      const { user, role } = await findUserByEmailForVerification(email);
+
+      if (!user) {
+        return res.status(400).json({
+          success: false,
+          message: "User not found or token expired",
+        });
+      }
+
+      const isTokenValid = await bcrypt.compare(code, user.verificationToken);
+      if (!isTokenValid) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid or expired token",
+        });
+      }
+
+      user.isVerified = true;
+      user.verificationToken = undefined;
+      user.verificationTokenExpiresAt = undefined;
+      await user.save();
+
+      // Optional: welcome email
+      // try {
+      //   const displayName = user.fullName || `${user.fName ?? ""} ${user.lName ?? ""}`.trim();
+      //   await sendWelcomeEmail(user.email, displayName);
+      // } catch (e) {}
+
+      return res.status(200).json({
+        success: true,
+        message: "Email verified successfully",
+        data: sanitize(user),
+        role,
+      });
+    } catch (error) {
+      console.error("verifyEmail error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+
   // Check auth
   static async checkAuth(req, res) {
     return res.status(200).json({
