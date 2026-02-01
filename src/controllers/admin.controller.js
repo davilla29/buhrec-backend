@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { Researcher } from "../models/Researcher.js";
 import { Reviewer } from "../models/Reviewer.js";
 import { Administrator } from "../models/Administrator.js";
+import { sendAccountCreationEmail } from "../mail/emailService.js";
 
 // small sanitize helper (don’t return password/photo buffer)
 const sanitizeReviewer = (r) => ({
@@ -92,14 +93,43 @@ class AdminController {
         ...(photo ? { photo } : {}),
       });
 
+      // Build frontend login link (exactly how you said)
+      const frontendUrl =
+        process.env.NODE_ENV === "development"
+          ? process.env.FRONTEND_URL_DEV
+          : process.env.FRONTEND_URL_PROD;
+
+      const loginLink = `${frontendUrl}/admin/login`;
+
       // TODO: send email with generated password (your existing mailer)
       // await sendReviewerWelcomeEmail(reviewer.email, password);
 
+      // ✅ Email reviewer their account details
+      try {
+        await sendAccountCreationEmail({
+          fullName: reviewer.fullName,
+          userEmail: reviewer.email,
+          generatedPassword,
+          loginLink,
+        });
+      } catch (mailErr) {
+        // If email fails, you may choose to keep the account but notify admin
+        console.error("Failed to send reviewer email:", mailErr);
+
+        return res.status(201).json({
+          success: true,
+          message:
+            "Reviewer created, but failed to send email. Please contact the reviewer manually or retry.",
+          data: sanitize(reviewer),
+          emailSent: false,
+        });
+      }
+
       return res.status(201).json({
         success: true,
-        message: "Reviewer created successfully",
-        data: sanitizeReviewer(reviewer),
-        emailSent: false, // change to true if you actually send it above
+        message: "Reviewer created successfully and email sent",
+        data: sanitize(reviewer),
+        emailSent: true,
       });
     } catch (error) {
       // Multer fileFilter errors often come as Error with message you set
