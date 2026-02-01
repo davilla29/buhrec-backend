@@ -163,8 +163,7 @@ class AuthController {
   static async addReviewer(req, res) {
     try {
       const {
-        fName,
-        lName,
+       fullName,
         email,
         institution,
         department,
