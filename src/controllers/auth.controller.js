@@ -158,6 +158,28 @@ class AuthController {
         .json({ success: false, message: "Internal server error." });
     }
   }
+
+  // Check auth
+  static async checkAuth(req, res) {
+    return res.status(200).json({
+      success: true,
+      data: req.user,
+    });
+  }
+
+  //  Logout
+  static logout(req, res) {
+    res.clearCookie("token", {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? "None" : "Lax",
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Logged out successfully",
+    });
+  }
 }
 
 export default AuthController;
