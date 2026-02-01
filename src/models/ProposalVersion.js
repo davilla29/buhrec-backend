@@ -1,3 +1,4 @@
+// models/ProposalVersion.js
 import mongoose from "mongoose";
 
 const proposalVersionSchema = new mongoose.Schema(
@@ -9,39 +10,48 @@ const proposalVersionSchema = new mongoose.Schema(
       index: true,
     },
 
-    versionNumber: { type: Number, required: true }, // 1,2,3...
+    // 0 = draft (editable)
+    // 1,2,3... = submitted versions
+    versionNumber: { type: Number, required: true },
 
-    // snapshot of the structured form (project details etc.)
+    kind: {
+      type: String,
+      enum: ["draft", "submitted"],
+      default: "draft",
+      index: true,
+    },
+
     formData: {
       type: mongoose.Schema.Types.Mixed,
       required: true,
     },
 
-    // supporting documents (FR-4)
     documents: [
       {
         _id: false,
         filename: { type: String, required: true },
-        url: { type: String, required: true }, // or path if local
+        url: { type: String, required: true },
         mimeType: { type: String },
         size: { type: Number },
         uploadedAt: { type: Date, default: Date.now },
       },
     ],
 
-    // why this version exists (e.g., "Initial submission", "Addressed reviewer comment")
-    changeNote: { type: String, trim: true },
+    changeNote: { type: String, trim: true }, // for version 2+ typically
 
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Researcher",
       required: true,
     },
+
+    // set for submitted versions
+    submittedAt: { type: Date },
   },
   { timestamps: true },
 );
 
-// Ensure unique version per proposal
+// one draft per proposal (version 0) and one record per submitted version number
 proposalVersionSchema.index(
   { proposal: 1, versionNumber: 1 },
   { unique: true },
