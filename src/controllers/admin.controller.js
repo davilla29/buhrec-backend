@@ -4,7 +4,6 @@ import { Researcher } from "../models/Researcher.js";
 import { Reviewer } from "../models/Reviewer.js";
 import { Administrator } from "../models/Administrator.js";
 
-
 // small sanitize helper (don’t return password/photo buffer)
 const sanitizeReviewer = (r) => ({
   _id: r._id,
@@ -65,7 +64,8 @@ class AdminController {
         });
       }
 
-      const exists = await emailExistsAnywhere(email);
+      const normalizedEmail = email.trim().toLowerCase();
+      const exists = await emailExistsAnywhere(normalizedEmail);
       if (exists) {
         return res
           .status(409)
@@ -109,6 +109,19 @@ class AdminController {
 
       console.error("Add reviewer error:", error);
       return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+
+  static async getReviewerPhoto(req, res) {
+    try {
+      const reviewer = await Reviewer.findById(req.params.id).select("photo");
+      if (!reviewer?.photo?.data) return res.sendStatus(404);
+
+      res.set("Content-Type", reviewer.photo.contentType || "image/jpeg");
+      return res.send(reviewer.photo.data);
+    } catch (e) {
+      console.error(e);
+      return res.sendStatus(500);
     }
   }
 }

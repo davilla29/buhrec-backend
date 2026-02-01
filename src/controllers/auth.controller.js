@@ -158,59 +158,6 @@ class AuthController {
         .json({ success: false, message: "Internal server error." });
     }
   }
-
-  // Admin-Add reviewer
-  static async addReviewer(req, res) {
-    try {
-      const {
-       fullName,
-        email,
-        institution,
-        department,
-        expertise = [],
-        experience,
-      } = req.body;
-
-      if (!fName || !lName || !email) {
-        return res.status(400).json({
-          success: false,
-          message: "fName, lName, email are required",
-        });
-      }
-
-      const exists = await emailExistsAnywhere(email);
-      if (exists) {
-        return res
-          .status(409)
-          .json({ success: false, message: "Email already in use" });
-      }
-
-
-      const password = crypto.randomBytes(8).toString("base64"); // 16 chars
-      const hashedPassword = await bcrypt.hash(password, 12);
-
-      const reviewer = await Reviewer.create({
-        fName,
-        lName,
-        email,
-        password: hashedPassword,
-        institution,
-        department,
-        expertise,
-        experience,
-      });
-
-      return res.status(201).json({
-        success: true,
-        message: "Reviewer created successfully and email sent",
-        data: sanitize(reviewer),
-        emailSent: true,
-      });
-    } catch (error) {
-      console.error("Add reviewer error:", error);
-      return res.status(500).json({ success: false, message: "Server error" });
-    }
-  }
 }
 
 export default AuthController;

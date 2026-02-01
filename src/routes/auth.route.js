@@ -7,7 +7,7 @@ import {
   researcherRegister,
 } from "../controllers/auth.controller.js";
 
-import { verifyToken, isAdmin } from "../middlewares/authMiddleware.js";
+import { verifyToken } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
@@ -23,9 +23,6 @@ router.use(verifyToken);
 
 // Check if user is logged in
 router.get("/check-auth", verifyToken, checkAuth);
-
-// Adding reviewer
-router.post("/add-reviewer", isAdmin, addReviewer);
 
 // Logout
 router.post("/logout", logout);
