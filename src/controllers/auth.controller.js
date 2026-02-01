@@ -304,6 +304,68 @@ class AuthController {
     }
   }
 
+  // Resending verification code
+  static async resendVerificationCode(req, res) {
+    try {
+      const email = req.body?.email?.trim()?.toLowerCase();
+
+      if (!email) {
+        return res.status(400).json({
+          success: false,
+          message: "Email is required",
+        });
+      }
+
+      // find user in any role
+      const researcher = await Researcher.findOne({ email });
+      const reviewer = !researcher ? await Reviewer.findOne({ email }) : null;
+      const admin =
+        !researcher && !reviewer
+          ? await Administrator.findOne({ email })
+          : null;
+
+      const user = researcher || reviewer || admin;
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found",
+        });
+      }
+
+      if (user.isVerified) {
+        return res.status(400).json({
+          success: false,
+          message: "Email is already verified",
+        });
+      }
+
+      // generate + hash new code
+      const verificationCode = generateVerificationCode(); // (your helper already in file)
+      const hashedCode = await bcrypt.hash(verificationCode, 10);
+
+      user.verificationToken = hashedCode;
+      user.verificationTokenExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+      await user.save();
+
+      // TODO: send email
+      // const displayName = user.fullName || `${user.fName ?? ""} ${user.lName ?? ""}`.trim();
+      // await sendVerificationEmail(user.email, displayName, verificationCode);
+
+      return res.status(200).json({
+        success: true,
+        message:
+          "Verification code resent. Please check your inbox and spam folder.",
+      });
+    } catch (error) {
+      console.error("Resend verification code error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server error",
+      });
+    }
+  }
+
   // Check auth
   static async checkAuth(req, res) {
     return res.status(200).json({

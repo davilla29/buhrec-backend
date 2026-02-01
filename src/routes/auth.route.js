@@ -14,6 +14,9 @@ router.post("/researcher/register", AuthController.researcherRegister);
 // Verify email
 router.post("/verify-email", AuthController.verifyEmail);
 
+// Resending verification code
+router.post("/resend-verification-code", AuthController.resendVerificationCode);
+
 // Protected
 router.get("/check-auth", verifyToken, AuthController.checkAuth);
 router.post("/logout", AuthController.logout);
