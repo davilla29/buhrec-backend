@@ -21,21 +21,14 @@ function sanitize(docOrObj) {
   if (!docOrObj) return null;
   const obj = docOrObj?.toObject ? docOrObj.toObject() : docOrObj;
   delete obj.password;
+  delete obj.verificationToken;
+  delete obj.verificationTokenExpiresAt;
   return obj;
 }
 
-async function findUserByEmailWithPassword(email) {
-  // password is select:false, so select it explicitly
-  const r = await Researcher.findOne({ email }).select("+password").lean();
-  if (r) return r;
-
-  const v = await Reviewer.findOne({ email }).select("+password").lean();
-  if (v) return v;
-
-  const a = await Administrator.findOne({ email }).select("+password").lean();
-  if (a) return a;
-
-  return null;
+function generateVerificationCode() {
+  // 6-digit numeric OTP
+  return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
 async function emailExistsAnywhere(email) {
@@ -46,12 +39,56 @@ async function emailExistsAnywhere(email) {
   );
 }
 
+async function findUserByEmailWithPassword(email) {
+  const r = await Researcher.findOne({ email })
+    .select("+password +verificationToken +verificationTokenExpiresAt")
+    .lean();
+  if (r) return r;
+
+  const v = await Reviewer.findOne({ email })
+    .select("+password +verificationToken +verificationTokenExpiresAt")
+    .lean();
+  if (v) return v;
+
+  const a = await Administrator.findOne({ email })
+    .select("+password +verificationToken +verificationTokenExpiresAt")
+    .lean();
+  if (a) return a;
+
+  return null;
+}
+
+async function findUserByEmailForVerification(email) {
+  // Only users whose token is not expired
+  const r = await Researcher.findOne({
+    email,
+    verificationTokenExpiresAt: { $gt: new Date() },
+  }).select("+verificationToken +verificationTokenExpiresAt");
+  if (r) return { user: r, role: "researcher" };
+
+  const v = await Reviewer.findOne({
+    email,
+    verificationTokenExpiresAt: { $gt: new Date() },
+  }).select("+verificationToken +verificationTokenExpiresAt");
+  if (v) return { user: v, role: "reviewer" };
+
+  const a = await Administrator.findOne({
+    email,
+    verificationTokenExpiresAt: { $gt: new Date() },
+  }).select("+verificationToken +verificationTokenExpiresAt");
+  if (a) return { user: a, role: "admin" };
+
+  return { user: null, role: null };
+}
+
 class AuthController {
   // Login
   static async login(req, res) {
     try {
       // Get inputs from the body
-      const { email, password } = req.body;
+
+      const email = req.body?.email?.trim()?.toLowerCase();
+      const { password } = req.body;
 
       if (!email || !password) {
         return res.status(400).json({
@@ -77,6 +114,34 @@ class AuthController {
           .json({ success: false, message: "Invalid credentials" });
       }
 
+      // ✅ Email verified check
+      if (user.isVerified === false) {
+        const verificationCode = generateVerificationCode();
+        const hashedCode = await bcrypt.hash(verificationCode, 10);
+
+        const Model = ROLE_MODEL_MAP[user.role];
+        await Model.updateOne(
+          { _id: user._id },
+          {
+            $set: {
+              verificationToken: hashedCode,
+              verificationTokenExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
+            },
+          },
+        );
+
+        // TODO: send code
+        // const displayName = user.fullName || `${user.fName ?? ""} ${user.lName ?? ""}`.trim();
+        // await sendVerificationEmail(user.email, displayName, verificationCode);
+
+        return res.status(403).json({
+          success: false,
+          message:
+            "Email not verified. Check your inbox/spam for the verification code.",
+          needVerification: true,
+        });
+      }
+
       generateTokenAndSetCookie(res, user._id, user.role);
 
       // Update lastLoginAt (best-effort)
@@ -91,6 +156,8 @@ class AuthController {
       // create a copy of the user object and remove the password from the copy.
       const safeUser = { ...user };
       delete safeUser.password;
+      delete safeUser.verificationToken;
+      delete safeUser.verificationTokenExpiresAt;
 
       return res.status(200).json({
         success: true,
