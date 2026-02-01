@@ -1,4 +1,4 @@
-import { Proposal } from "../models/Proposal";
+import { Proposal } from "../models/Proposal.js";
 
 function randomChunk(len = 6) {
   return Math.random().toString(36).slice(2).toUpperCase().slice(0, len);

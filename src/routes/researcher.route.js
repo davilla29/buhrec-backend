@@ -1,8 +1,8 @@
 // routes/researcherProposalRoutes.js
 import express from "express";
-import { verifyToken, isResearcher } from "../middlewares/authMiddleware.js";
+import { verifyToken, isResearcher } from "../middlewares/auth.middleware.js";
 import { uploadProposalDocs } from "../middlewares/uploadProposalDocs.js";
-import { ProposalController } from "../controllers/proposal.controller.js";
+import ProposalController  from "../controllers/proposal.controller.js";
 
 const router = express.Router();
 
