@@ -25,7 +25,6 @@ const reviewCommentSchema = new mongoose.Schema(
     },
 
     // optional: structure feedback per section in your form
-    section: { type: String, trim: true }, // e.g. "Methodology", "Consent", "Risk"
     comment: { type: String, required: true, trim: true },
 
     // reviewer can recommend an outcome
