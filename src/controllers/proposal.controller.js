@@ -301,6 +301,186 @@ class ProposalController {
       return res.status(500).json({ success: false, message: err.message });
     }
   }
+
+  // Get all versions for a particular proposal
+  static async listVersions(req, res) {
+    try {
+      const { proposalId } = req.params;
+
+      // Verify proposal belongs to the logged-in researcher
+      const proposal = await Proposal.findOne({
+        _id: proposalId,
+        researcher: req.userId,
+      });
+
+      if (!proposal)
+        return res
+          .status(404)
+          .json({ success: false, message: "Proposal not found" });
+
+      // Fetch all submitted versions
+      const versions = await ProposalVersion.find({
+        proposal: proposal._id,
+        kind: "submitted",
+      })
+        .sort({ versionNumber: -1 })
+        .lean();
+
+      // Count reviewer comments per version
+      const counts = await ReviewComment.aggregate([
+        { $match: { proposal: proposal._id, isVisibleToResearcher: true } },
+        { $group: { _id: "$proposalVersion", count: { $sum: 1 } } },
+      ]);
+
+      // Attach comment counts to each version
+      const countMap = new Map(counts.map((c) => [String(c._id), c.count]));
+
+      const enriched = versions.map((v) => ({
+        ...v,
+        commentCount: countMap.get(String(v._id)) || 0,
+      }));
+
+      return res.status(200).json({
+        success: true,
+        proposal: {
+          _id: proposal._id,
+          title: proposal.title,
+          applicationId: proposal.applicationId,
+          status: proposal.status,
+          currentVersion: proposal.currentVersion,
+          versionCount: proposal.versionCount,
+        },
+        versions: enriched,
+      });
+    } catch (err) {
+      console.log("listVersions error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  // Get comments for each version
+  static async getVersionComments(req, res) {
+    try {
+      const { proposalId, versionNumber } = req.params;
+
+      const proposal = await Proposal.findOne({
+        _id: proposalId,
+        researcher: req.userId,
+      });
+
+      if (!proposal)
+        return res
+          .status(404)
+          .json({ success: false, message: "Proposal not found" });
+
+      const version = await ProposalVersion.findOne({
+        proposal: proposal._id,
+        versionNumber: Number(versionNumber),
+        kind: "submitted",
+      });
+
+      if (!version)
+        return res
+          .status(404)
+          .json({ success: false, message: "Version not found" });
+
+      const comments = await ReviewComment.find({
+        proposal: proposal._id,
+        proposalVersion: version._id,
+        isVisibleToResearcher: true,
+      })
+        .sort({ createdAt: -1 })
+        .populate("reviewer", "fullName email") // adjust reviewer fields
+        .lean();
+
+      return res.status(200).json({ success: true, version, comments });
+    } catch (err) {
+      console.log("getVersionComments error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  // Submit v2+ when Awaiting Modifications
+  static async submitUpdatedVersion(req, res) {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+      const { proposalId } = req.params;
+      const { formData, changeNote } = req.body;
+
+      const proposal = await Proposal.findOne({
+        _id: proposalId,
+        researcher: req.userId,
+      }).session(session);
+
+      if (!proposal)
+        return res
+          .status(404)
+          .json({ success: false, message: "Proposal not found" });
+
+      if (proposal.status !== "Awaiting Modifications") {
+        return res.status(400).json({
+          success: false,
+          message:
+            "You can only submit updates when modifications are requested",
+        });
+      }
+
+      if (!changeNote || changeNote.trim().length < 3) {
+        return res.status(400).json({
+          success: false,
+          message: "changeNote is required (briefly explain what you changed)",
+        });
+      }
+
+      //   const uploaded = await uploadFilesToStorage(req.files || []);
+      const uploaded = await uploadFilesToStorage(req.files || [], {
+        proposalId: proposal._id.toString(),
+        versionTag: `v${proposal.versionCount + 1}`,
+      });
+
+      const parsedFormData =
+        typeof formData === "string" ? JSON.parse(formData) : formData;
+
+      const nextVersionNumber = proposal.versionCount + 1;
+
+      const newV = await ProposalVersion.create(
+        [
+          {
+            proposal: proposal._id,
+            versionNumber: nextVersionNumber,
+            kind: "submitted",
+            formData: parsedFormData,
+            documents: uploaded,
+            changeNote,
+            createdBy: req.userId,
+            submittedAt: new Date(),
+          },
+        ],
+        { session },
+      );
+
+      proposal.currentVersion = newV[0]._id;
+      proposal.versionCount = nextVersionNumber;
+      proposal.status = "Under Review";
+      await proposal.save({ session });
+
+      await session.commitTransaction();
+      session.endSession();
+
+      return res.status(200).json({
+        success: true,
+        proposal,
+        version: newV[0],
+      });
+    } catch (err) {
+      await session.abortTransaction();
+      session.endSession();
+      console.log("submitUpdatedVersion error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
 }
 
 export default ProposalController;
