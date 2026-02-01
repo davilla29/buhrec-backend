@@ -57,3 +57,11 @@ export const isAdmin = (req, res, next) => {
   }
   next();
 };
+
+export const isResearcher = (req, res, next) => {
+  if (req.userRole !== "researcher")
+    return res
+      .status(403)
+      .json({ success: false, message: "Researchers only" });
+  next();
+};
