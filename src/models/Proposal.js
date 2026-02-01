@@ -61,9 +61,10 @@ const proposalSchema = new mongoose.Schema(
     versionCount: { type: Number, default: 0 },
     reviewCount: { type: Number, default: 0 },
 
+    // Once the reviewer accepts the assignment, the status is changed to under review and lastStatusChangedBy is set to teh reviewer's id
     lastStatusChangedBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Administrator",
+      ref: "Reviewer",
     },
     lastStatusChangedAt: { type: Date },
   },
