@@ -174,49 +174,74 @@ class AuthController {
   static async researcherRegister(req, res) {
     try {
       const {
-        title,
-        fName,
-        lName,
+        fullName,
         email,
-        password,
+        dateOfBirth, // should be ISO string from frontend
         institution,
-        department,
-        phone,
-        experience,
+        occupation,
+        password,
       } = req.body;
 
-      if (!fName || !lName || !email || !password || !institution) {
+      if (
+        !fullName ||
+        !email ||
+        !dateOfBirth ||
+        !institution ||
+        !occupation ||
+        !password
+      ) {
         return res.status(400).json({
           success: false,
-          message: "Fill out all required fields",
+          message:
+            "fullName, email, dateOfBirth, institution, occupation, password are required",
         });
       }
 
-      const exists = await emailExistsAnywhere(email);
+      const normalizedEmail = email.trim().toLowerCase();
+
+      const exists = await emailExistsAnywhere(normalizedEmail);
       if (exists) {
         return res
           .status(409)
           .json({ success: false, message: "Email already in use" });
       }
 
+      const dob = new Date(dateOfBirth);
+      if (Number.isNaN(dob.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: "dateOfBirth must be a valid date",
+        });
+      }
+
       const hashed = await bcrypt.hash(password, 12);
 
+      // generate OTP for verification
+      const verificationCode = generateVerificationCode();
+      const hashedCode = await bcrypt.hash(verificationCode, 10);
+
       const researcher = await Researcher.create({
-        title,
-        fName,
-        lName,
-        email,
-        password: hashed,
-        institution,
-        department,
-        phone,
-        experience,
+        fullName: fullName.trim(),
+        email: normalizedEmail,
+        dateOfBirth: dob,
+        institution: institution.trim(),
+        occupation: occupation.trim(),
+        password: hashedPassword,
+
+        isVerified: false,
+        verificationToken: hashedCode,
+        verificationTokenExpiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 mins
       });
+
+      // TODO: send verification code email
+      // await sendVerificationEmail(researcher.email, researcher.fullName, verificationCode);
 
       return res.status(201).json({
         success: true,
-        message: "Researcher registered successfully",
+        message:
+          "Account created. Please verify your email using the code sent to you.",
         data: sanitize(researcher),
+        needVerification: true,
       });
     } catch (error) {
       console.error("Register error:", error);
