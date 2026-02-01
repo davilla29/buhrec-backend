@@ -138,7 +138,7 @@ export const ACCOUNT_CREATION_EMAIL_TEMPLATE = ({
     </p>
 
     <p style="color:#334155; font-size:0.95rem; line-height:1.6;">
-      Your account has been created successfully. Below are your temporary login credentials.
+      Your account has been created successfully. Below are your login credentials.
       Please keep them secure.
     </p>
 

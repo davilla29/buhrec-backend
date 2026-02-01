@@ -1,10 +1,10 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-
 import { Researcher } from "../models/Researcher.js";
 import { Reviewer } from "../models/Reviewer.js";
 import { Administrator } from "../models/Administrator.js";
 import { generateTokenAndSetCookie } from "../utils/generateTokenAndSetCookie.js";
+import { sendVerificationCodeEmail } from "../mail/emailService.js";
 
 const DUMMY_PASSWORD_HASH =
   "$2a$10$CwTycUXWue0Thq9StjUM0uJ8axFzjcxgXmjKPqExE7hFl/jfD2N.G";
@@ -130,9 +130,27 @@ class AuthController {
           },
         );
 
-        // TODO: send code
-        // const displayName = user.fullName || `${user.fName ?? ""} ${user.lName ?? ""}`.trim();
-        // await sendVerificationEmail(user.email, displayName, verificationCode);
+        // ✅ Send email
+        try {
+          const frontendUrl =
+            process.env.NODE_ENV === "development"
+              ? process.env.FRONTEND_URL_DEV
+              : process.env.FRONTEND_URL_PROD;
+
+          const verificationLink = `${frontendUrl}/verify-email`;
+
+          const fullName =
+            user.fullName || `${user.fName ?? ""} ${user.lName ?? ""}`.trim();
+
+          await sendVerificationCodeEmail({
+            fullName,
+            userEmail: user.email,
+            verificationCode,
+            verificationLink,
+          });
+        } catch (mailErr) {
+          console.error("Failed to send verification email:", mailErr);
+        }
 
         return res.status(403).json({
           success: false,
@@ -348,9 +366,27 @@ class AuthController {
       user.verificationTokenExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
       await user.save();
 
-      // TODO: send email
-      // const displayName = user.fullName || `${user.fName ?? ""} ${user.lName ?? ""}`.trim();
-      // await sendVerificationEmail(user.email, displayName, verificationCode);
+      // ✅ Send email
+      try {
+        const frontendUrl =
+          process.env.NODE_ENV === "development"
+            ? process.env.FRONTEND_URL_DEV
+            : process.env.FRONTEND_URL_PROD;
+
+        const verificationLink = `${frontendUrl}/verify-email`;
+
+        const fullName =
+          user.fullName || `${user.fName ?? ""} ${user.lName ?? ""}`.trim();
+
+        await sendVerificationCodeEmail({
+          fullName,
+          userEmail: user.email,
+          verificationCode,
+          verificationLink,
+        });
+      } catch (mailErr) {
+        console.error("Failed to send verification email:", mailErr);
+      }
 
       return res.status(200).json({
         success: true,

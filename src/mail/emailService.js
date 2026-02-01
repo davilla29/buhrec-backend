@@ -1,5 +1,8 @@
 import { transporter } from "./smtp.config.js";
-import { VERIFICATION_EMAIL_TEMPLATE, ACCOUNT_CREATION_EMAIL_TEMPLATE } from "./emailTemplates.js";
+import {
+  VERIFICATION_EMAIL_TEMPLATE,
+  ACCOUNT_CREATION_EMAIL_TEMPLATE,
+} from "./emailTemplates.js";
 
 const senderEmail = '"BUHREC System" <bolarinwadavid3@gmail.com>';
 export const sendAccountCreationEmail = async ({
@@ -8,8 +11,6 @@ export const sendAccountCreationEmail = async ({
   generatedPassword,
   loginLink,
 }) => {
-
-
   try {
     const html = ACCOUNT_CREATION_EMAIL_TEMPLATE({
       userName: fullName,
@@ -26,4 +27,24 @@ export const sendAccountCreationEmail = async ({
   } catch (error) {
     console.error("Error sending email:", error);
   }
+};
+
+export const sendVerificationCodeEmail = async ({
+  fullName,
+  userEmail,
+  verificationCode,
+  verificationLink,
+}) => {
+  const html = VERIFICATION_EMAIL_TEMPLATE({
+    userName: fullName,
+    verificationCode,
+    verificationLink,
+  });
+
+  await transporter.sendMail({
+    from: senderEmail,
+    to: userEmail,
+    subject: "Verify Your Email Address",
+    html,
+  });
 };
