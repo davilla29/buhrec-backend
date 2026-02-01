@@ -15,3 +15,5 @@ export function uploadBufferToCloudinary(buffer, options = {}) {
     streamifier.createReadStream(buffer).pipe(stream);
   });
 }
+
+

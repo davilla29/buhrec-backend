@@ -16,17 +16,6 @@ const administratorSchema = new mongoose.Schema(
 
     role: { type: String, default: "admin", immutable: true },
 
-    permissions: {
-      type: [String],
-      default: [
-        "MANAGE_USERS",
-        "ASSIGN_REVIEWERS",
-        "UPDATE_PROPOSAL_STATUS",
-        "VIEW_ALL_PROPOSALS",
-        "MANAGE_PAYMENTS",
-      ],
-    },
-
     isActive: { type: Boolean, default: true },
     lastLoginAt: { type: Date },
   },

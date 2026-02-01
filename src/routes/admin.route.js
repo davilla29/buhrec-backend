@@ -12,6 +12,17 @@ router.get(
   isAdmin,
   AdminController.getReviewerPhoto,
 );
+// Get all reviewers
+router.get("/reviewers", verifyToken, isAdmin, AdminController.getAllReviewers);
+
+// Get reviewers by ID
+router.get(
+  "/reviewers/:id",
+  verifyToken,
+  isAdmin,
+  AdminController.getReviewerById,
+);
+
 router.post(
   "/add-reviewer",
   verifyToken,

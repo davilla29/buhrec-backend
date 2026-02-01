@@ -1,6 +1,4 @@
 import mongoose from "mongoose";
-import crypto from "crypto";
-import bcrypt from "bcryptjs";
 import { Proposal } from "../models/Proposal.js";
 import { ProposalVersion } from "../models/ProposalVersion.js";
 import { ReviewComment } from "../models/ReviewComment.js";
