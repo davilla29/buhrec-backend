@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import crypto from "crypto"
 import { Researcher } from "../models/Researcher.js";
 import { Reviewer } from "../models/Reviewer.js";
 import { Administrator } from "../models/Administrator.js";
@@ -334,6 +335,7 @@ class AuthController {
           id: admin._id,
           email: admin.email,
           fullName: admin.fullName,
+          password: generatedPassword
         },
       });
     } catch (error) {

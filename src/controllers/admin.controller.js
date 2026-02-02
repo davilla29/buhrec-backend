@@ -2,8 +2,10 @@ import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { Researcher } from "../models/Researcher.js";
 import { Reviewer } from "../models/Reviewer.js";
+import { ReviewAssignment } from "../models/ReviewAssignment.js";
 import { Administrator } from "../models/Administrator.js";
 import { sendAccountCreationEmail } from "../mail/emailService.js";
+import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
 
 // small sanitize helper (don’t return password/photo buffer)
 const sanitizeReviewer = (r) => ({
@@ -18,7 +20,9 @@ const sanitizeReviewer = (r) => ({
   isActive: r.isActive,
   createdAt: r.createdAt,
   updatedAt: r.updatedAt,
-  hasPhoto: Boolean(r.photo?.data),
+  // hasPhoto: Boolean(r.photo?.data),
+  photoUrl: r.photoUrl || "",
+  hasPhoto: Boolean(r.photoUrl),
 });
 
 async function emailExistsAnywhere(email) {
@@ -79,8 +83,24 @@ class AdminController {
         : undefined;
 
       // auto-generate password
-      const password = crypto.randomBytes(8).toString("base64"); // 16-ish chars
-      const hashedPassword = await bcrypt.hash(password, 12);
+      const generatedPassword = crypto.randomBytes(8).toString("base64"); // 16-ish chars
+      const hashedPassword = await bcrypt.hash(generatedPassword, 12);
+
+      // Upload photo to cloudinary if included
+      let photoUrl = "";
+      let photoPublicId = "";
+
+      if (req.file?.buffer) {
+        const uploaded = await uploadBufferToCloudinary(req.file.buffer, {
+          folder: "buhrec/reviewers", // change to your folder style
+          resource_type: "image",
+          // optional: force transformations
+          // transformation: [{ width: 500, height: 500, crop: "fill" }],
+        });
+
+        photoUrl = uploaded.secure_url;
+        photoPublicId = uploaded.public_id;
+      }
 
       const reviewer = await Reviewer.create({
         fullName: fullName.trim(),
@@ -90,7 +110,7 @@ class AdminController {
         specialization: specialization.trim(),
         yearsOfExperience: yrs,
         password: hashedPassword,
-        ...(photo ? { photo } : {}),
+        ...(photoUrl ? { photoUrl, photoPublicId } : {}),
       });
 
       // Build frontend login link (exactly how you said)
@@ -99,7 +119,7 @@ class AdminController {
           ? process.env.FRONTEND_URL_DEV
           : process.env.FRONTEND_URL_PROD;
 
-      const loginLink = `${frontendUrl}/admin/login`;
+      const loginLink = `${frontendUrl}/reviewer/login`;
 
       // ✅ Email reviewer their account details
       try {
@@ -117,7 +137,7 @@ class AdminController {
           success: true,
           message:
             "Reviewer created, but failed to send email. Please contact the reviewer manually or retry.",
-          data: sanitize(reviewer),
+          data: sanitizeReviewer(reviewer),
           emailSent: false,
         });
       }
@@ -125,7 +145,7 @@ class AdminController {
       return res.status(201).json({
         success: true,
         message: "Reviewer created successfully and email sent",
-        data: sanitize(reviewer),
+        data: sanitizeReviewer(reviewer),
         emailSent: true,
       });
     } catch (error) {
@@ -149,6 +169,230 @@ class AdminController {
     } catch (e) {
       console.error(e);
       return res.sendStatus(500);
+    }
+  }
+
+  static async getAllReviewers(req, res) {
+    try {
+      // basic reviewer info
+      const reviewers = await Reviewer.find({ isActive: true })
+        .select("fullName title specialization institution photoUrl createdAt")
+        .lean();
+
+      // OPTIONAL: attach ongoing assignments count
+      const reviewerIds = reviewers.map((r) => r._id);
+
+      const ongoingCounts = await Assignment.aggregate([
+        {
+          $match: {
+            reviewer: { $in: reviewerIds },
+            status: "ongoing",
+          },
+        },
+        {
+          $group: {
+            _id: "$reviewer",
+            count: { $sum: 1 },
+          },
+        },
+      ]);
+
+      const countMap = Object.fromEntries(
+        ongoingCounts.map((c) => [c._id.toString(), c.count]),
+      );
+
+      const data = reviewers.map((r) => ({
+        ...r,
+        ongoingAssignments: countMap[r._id.toString()] || 0,
+      }));
+
+      return res.status(200).json({
+        success: true,
+        data,
+      });
+    } catch (error) {
+      console.error("Get reviewers error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server error",
+      });
+    }
+  }
+
+  static async getReviewerById(req, res) {
+    try {
+      const { id } = req.params;
+
+      const reviewer = await Reviewer.findById(id)
+        .select(
+          "fullName email title specialization institution yearsOfExperience photoUrl isActive createdAt",
+        )
+        .lean();
+
+      if (!reviewer) {
+        return res.status(404).json({
+          success: false,
+          message: "Reviewer not found",
+        });
+      }
+
+      // Assignment statistics
+      const stats = await Assignment.aggregate([
+        {
+          $match: { reviewer: reviewer._id },
+        },
+        {
+          $group: {
+            _id: "$status",
+            count: { $sum: 1 },
+          },
+        },
+      ]);
+
+      const statsMap = {
+        accepted: 0,
+        completed: 0,
+        incomplete: 0,
+        pendingFeedback: 0,
+      };
+
+      stats.forEach((s) => {
+        if (s._id === "accepted") statsMap.accepted = s.count;
+        if (s._id === "completed") statsMap.completed = s.count;
+        if (s._id === "incomplete") statsMap.incomplete = s.count;
+        if (s._id === "pending_feedback") statsMap.pendingFeedback = s.count;
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          ...reviewer,
+          statistics: statsMap,
+        },
+      });
+    } catch (error) {
+      console.error("Get reviewer details error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server error",
+      });
+    }
+  }
+
+  static async deactivateReviewer(req, res) {
+    try {
+      const { id } = req.params;
+
+      const reviewer = await Reviewer.findByIdAndUpdate(
+        id,
+        { isActive: false },
+        { new: true },
+      ).select("fullName isActive");
+
+      if (!reviewer) {
+        return res.status(404).json({
+          success: false,
+          message: "Reviewer not found",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Reviewer deactivated successfully",
+        data: reviewer,
+      });
+    } catch (error) {
+      console.error("Deactivate reviewer error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server error",
+      });
+    }
+  }
+
+  static async reactivateReviewer(req, res) {
+    try {
+      const { id } = req.params;
+
+      const reviewer = await Reviewer.findByIdAndUpdate(
+        id,
+        { isActive: true },
+        { new: true },
+      ).select("fullName isActive");
+
+      if (!reviewer) {
+        return res.status(404).json({
+          success: false,
+          message: "Reviewer not found",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Reviewer reactivated successfully",
+        data: reviewer,
+      });
+    } catch (error) {
+      console.error("Reactivate reviewer error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server error",
+      });
+    }
+  }
+
+  static async reassignSingleAssignment(req, res) {
+    try {
+      const { assignmentId } = req.params;
+      const { newReviewerId } = req.body;
+
+      if (!newReviewerId) {
+        return res.status(400).json({
+          success: false,
+          message: "newReviewerId is required",
+        });
+      }
+
+      const newReviewer = await Reviewer.findById(newReviewerId);
+      if (!newReviewer || !newReviewer.isActive) {
+        return res.status(400).json({
+          success: false,
+          message: "New reviewer must exist and be active",
+        });
+      }
+
+      const assignment = await ReviewAssignment.findById(assignmentId);
+
+      if (!assignment) {
+        return res.status(404).json({
+          success: false,
+          message: "Assignment not found",
+        });
+      }
+
+      if (["submitted", "rejected", "withdrawn"].includes(assignment.status)) {
+        return res.status(400).json({
+          success: false,
+          message: "This assignment can no longer be reassigned",
+        });
+      }
+
+      assignment.reviewer = newReviewerId;
+      assignment.assignedAt = new Date();
+
+      await assignment.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Assignment reassigned successfully",
+        data: assignment,
+      });
+    } catch (error) {
+      console.error("Reassign single assignment error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server error",
+      });
     }
   }
 }
