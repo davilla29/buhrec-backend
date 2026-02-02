@@ -28,6 +28,10 @@ const reviewerSchema = new mongoose.Schema(
       contentType: String,
     },
 
+    // ✅ cloudinary photo fields
+    photoUrl: { type: String, default: "" },
+    photoPublicId: { type: String, default: "" },
+
     role: { type: String, default: "reviewer", immutable: true },
 
     isActive: { type: Boolean, default: true },

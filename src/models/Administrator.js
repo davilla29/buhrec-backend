@@ -11,21 +11,9 @@ const administratorSchema = new mongoose.Schema(
       index: true,
     },
     password: { type: String, required: true, select: false },
-    fName: { type: String, required: true, trim: true },
-    lName: { type: String, required: true, trim: true },
+    fullName: { type: String, required: true, trim: true },
 
     role: { type: String, default: "admin", immutable: true },
-
-    permissions: {
-      type: [String],
-      default: [
-        "MANAGE_USERS",
-        "ASSIGN_REVIEWERS",
-        "UPDATE_PROPOSAL_STATUS",
-        "VIEW_ALL_PROPOSALS",
-        "MANAGE_PAYMENTS",
-      ],
-    },
 
     isActive: { type: Boolean, default: true },
     lastLoginAt: { type: Date },

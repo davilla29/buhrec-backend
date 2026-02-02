@@ -1,3 +1,4 @@
+// models/Proposal.js
 import mongoose from "mongoose";
 
 const proposalSchema = new mongoose.Schema(
@@ -10,6 +11,8 @@ const proposalSchema = new mongoose.Schema(
     },
 
     title: { type: String, required: true, trim: true },
+
+    // Application ID like: BUH-AF9SK2
     applicationId: { type: String, required: true, unique: true, index: true },
 
     status: {
@@ -17,6 +20,8 @@ const proposalSchema = new mongoose.Schema(
       enum: [
         "Draft",
         "Awaiting Payment",
+        "Paid", // <-- added (ready-to-submit)
+        "Waiting to be assigned",
         "Under Review",
         "Awaiting Modifications",
         "Rejected",
@@ -26,26 +31,41 @@ const proposalSchema = new mongoose.Schema(
       index: true,
     },
 
+    // fixed fee
+    feeAmount: { type: Number, default: 7000, immutable: true },
+    currency: { type: String, default: "NGN", immutable: true },
+
+    payment: {
+      status: {
+        type: String,
+        enum: ["unpaid", "pending", "paid", "failed"],
+        default: "unpaid",
+        index: true,
+      },
+      txRef: { type: String, index: true }, // your unique reference
+      flutterwaveTransactionId: { type: String },
+      paidAt: { type: Date },
+      raw: { type: mongoose.Schema.Types.Mixed }, // store verification response (optional)
+    },
+
     // set when first submitted
     submittedAt: { type: Date },
     assignedAt: { type: Date },
     approvedAt: { type: Date },
     rejectedAt: { type: Date },
 
-    // points to the latest version
     currentVersion: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "ProposalVersion",
     },
 
-    // simple counters for quick listing
     versionCount: { type: Number, default: 0 },
     reviewCount: { type: Number, default: 0 },
 
-    // optional: admin who last changed status
+    // Once the reviewer accepts the assignment, the status is changed to under review and lastStatusChangedBy is set to teh reviewer's id
     lastStatusChangedBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Administrator",
+      ref: "Reviewer",
     },
     lastStatusChangedAt: { type: Date },
   },

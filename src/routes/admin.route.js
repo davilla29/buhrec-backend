@@ -12,12 +12,44 @@ router.get(
   isAdmin,
   AdminController.getReviewerPhoto,
 );
+// Get all reviewers
+router.get("/reviewers", verifyToken, isAdmin, AdminController.getAllReviewers);
+
+// Get reviewers by ID
+router.get(
+  "/reviewers/:id",
+  verifyToken,
+  isAdmin,
+  AdminController.getReviewerById,
+);
+
 router.post(
   "/add-reviewer",
   verifyToken,
   isAdmin,
   uploadReviewerPhoto,
   AdminController.addReviewer,
+);
+
+router.patch(
+  "/reviewers/:id/deactivate",
+  verifyToken,
+  isAdmin,
+  AdminController.deactivateReviewer,
+);
+
+router.patch(
+  "/reviewers/:id/reactivate",
+  verifyToken,
+  isAdmin,
+  AdminController.reactivateReviewer,
+);
+
+router.patch(
+  "/review-assignments/:assignmentId/reassign",
+  verifyToken,
+  isAdmin,
+  AdminController.reassignSingleAssignment,
 );
 
 export default router;

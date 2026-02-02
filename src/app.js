@@ -3,7 +3,8 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 
 import authRoutes from "./routes/auth.route.js";
-
+import adminRoutes from "./routes/admin.route.js";
+import researcherRoutes from "./routes/researcher.route.js";
 
 const app = express();
 
@@ -22,6 +23,8 @@ app.use(express.urlencoded({ extended: true }));
 
 // API Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/researcher", researcherRoutes);
 
 // 404 Handler for unknown API routes
 app.use((req, res, next) => {
