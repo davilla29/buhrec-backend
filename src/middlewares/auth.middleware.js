@@ -36,12 +36,10 @@ export const verifyToken = async (req, res, next) => {
       error.name === "TokenExpiredError" ||
       error.name === "JsonWebTokenError"
     ) {
-      return res
-        .status(401)
-        .json({
-          success: false,
-          message: "Unauthorized - invalid or expired token",
-        });
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized - invalid or expired token",
+      });
     }
 
     console.log("Error in verifyToken", error);
@@ -60,8 +58,20 @@ export const isAdmin = (req, res, next) => {
 
 export const isResearcher = (req, res, next) => {
   if (req.userRole !== "researcher")
+    return res.status(403).json({
+      success: false,
+      message: "Only Researchers can perform the action",
+    });
+  next();
+};
+
+export const isReviewer = (req, res, next) => {
+  if (req.userRole !== "researcher")
     return res
       .status(403)
-      .json({ success: false, message: "Researchers only" });
+      .json({
+        success: false,
+        message: "Only Reviewers can perform the action",
+      });
   next();
 };

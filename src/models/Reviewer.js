@@ -22,12 +22,6 @@ const reviewerSchema = new mongoose.Schema(
     specialization: { type: String, required: true, trim: true }, // dropdown value
     yearsOfExperience: { type: Number, required: true, min: 0 },
 
-    // photo stored directly in MongoDB
-    photo: {
-      data: Buffer,
-      contentType: String,
-    },
-
     // ✅ cloudinary photo fields
     photoUrl: { type: String, default: "" },
     photoPublicId: { type: String, default: "" },

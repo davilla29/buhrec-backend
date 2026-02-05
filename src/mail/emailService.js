@@ -35,16 +35,20 @@ export const sendVerificationCodeEmail = async ({
   verificationCode,
   verificationLink,
 }) => {
-  const html = VERIFICATION_EMAIL_TEMPLATE({
-    userName: fullName,
-    verificationCode,
-    verificationLink,
-  });
+  try {
+    const html = VERIFICATION_EMAIL_TEMPLATE({
+      userName: fullName,
+      verificationCode,
+      verificationLink,
+    });
 
-  await transporter.sendMail({
-    from: senderEmail,
-    to: userEmail,
-    subject: "Verify Your Email Address",
-    html,
-  });
+    await transporter.sendMail({
+      from: senderEmail,
+      to: userEmail,
+      subject: "Verify Your Email Address",
+      html,
+    });
+  } catch (error) {
+    console.error("Error sending email:", error);
+  }
 };
