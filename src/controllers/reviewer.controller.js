@@ -82,10 +82,7 @@ class ReviewerController {
     }
   }
 
-  /**
-   * PATCH /reviewer/assignments/:assignmentId/accept
-   * Accept assignment
-   */
+  // Accept assignment
   static async acceptAssignment(req, res) {
     try {
       const { assignmentId } = req.params;
@@ -126,11 +123,7 @@ class ReviewerController {
     }
   }
 
-  /**
-   * PATCH /reviewer/assignments/:assignmentId/decline
-   * Decline assignment + reason
-   * body: { reason: "..." }
-   */
+  // Decline assignment + reason
   static async declineAssignment(req, res) {
     try {
       const { assignmentId } = req.params;
@@ -171,10 +164,7 @@ class ReviewerController {
     }
   }
 
-  /**
-   * GET /reviewer/assignments/:assignmentId/proposal
-   * Review proposal (loads proposal + latest submitted version)
-   */
+  // Review proposal (loads proposal + latest submitted version)
   static async getProposalForReview(req, res) {
     try {
       const { assignmentId } = req.params;
@@ -244,10 +234,7 @@ class ReviewerController {
     }
   }
 
-  /**
-   * GET /reviewer/assignments/:assignmentId/proposal/versions
-   * Review updated proposal: list all submitted versions (latest first)
-   */
+  // Review updated proposal: list all submitted versions (latest first)
   static async listSubmittedVersions(req, res) {
     try {
       const { assignmentId } = req.params;
@@ -287,10 +274,7 @@ class ReviewerController {
     }
   }
 
-  /**
-   * GET /reviewer/assignments/:assignmentId/proposal/version/:versionId
-   * Load a specific version for review
-   */
+  // Load a specific version for review
   static async getVersionForReview(req, res) {
     try {
       const { assignmentId, versionId } = req.params;
@@ -338,11 +322,7 @@ class ReviewerController {
     }
   }
 
-  /**
-   * POST /reviewer/assignments/:assignmentId/comments
-   * Comment on proposal + optionally request changes
-   * body: { proposalVersionId, message, fieldPath?, severity?, requestsChange? }
-   */
+  // Comment on proposal + optionally request changes
   static async addComment(req, res) {
     try {
       const { assignmentId } = req.params;
@@ -427,17 +407,47 @@ class ReviewerController {
     }
   }
 
-  /**
-   * GET /reviewer/assignments/:assignmentId/comments?proposalVersionId=...
-   * List comments for a version (or all comments for assignment)
-   */
-  static async listComments(req, res) {}
+  
+  // List comments for a version 
+  static async listComments(req, res) {
+    try {
+      const { assignmentId } = req.params;
+      const reviewerId = req.userId;
+      const { proposalVersionId } = req.query;
 
-  /**
-   * POST /reviewer/assignments/:assignmentId/decision
-   * Approve or reject proposal (or request changes)
-   * body: { decision: "approve"|"reject"|"changes_requested", reason? }
-   */
+      const assignment = await getReviewerAssignmentOr404(
+        assignmentId,
+        reviewerId,
+      );
+      if (!assignment) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Assignment not found" });
+      }
+
+      const filter = { assignment: assignment._id };
+      if (proposalVersionId) {
+        if (!isValidObjectId(proposalVersionId)) {
+          return res
+            .status(400)
+            .json({ success: false, message: "Invalid proposalVersionId" });
+        }
+        filter.proposalVersion = proposalVersionId;
+      }
+
+      const comments = await ReviewComment.find(filter)
+        .sort({ createdAt: -1 })
+        .lean();
+
+      return res.status(200).json({ success: true, comments });
+    } catch (error) {
+      console.log("listComments error:", error);
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  
+  // Approve or reject proposal or request changes
   static async submitDecision(req, res) {}
 }
 
