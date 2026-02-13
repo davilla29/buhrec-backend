@@ -60,7 +60,27 @@ class ReviewerController {
    * GET /reviewer/assignments/:assignmentId
    * View single assignment detail
    */
-  static async getAssignment(req, res) {}
+  static async getAssignment(req, res) {
+    try {
+      const { assignmentId } = req.params;
+      const reviewerId = req.userId;
+
+      const assignment = await getReviewerAssignmentOr404(
+        assignmentId,
+        reviewerId,
+      );
+      if (!assignment) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Assignment not found" });
+      }
+
+      return res.status(200).json({ success: true, assignment });
+    } catch (error) {
+      console.log("getAssignment error:", error);
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  }
 
   /**
    * PATCH /reviewer/assignments/:assignmentId/accept
