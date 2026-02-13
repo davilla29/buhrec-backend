@@ -291,7 +291,52 @@ class ReviewerController {
    * GET /reviewer/assignments/:assignmentId/proposal/version/:versionId
    * Load a specific version for review
    */
-  static async getVersionForReview(req, res) {}
+  static async getVersionForReview(req, res) {
+    try {
+      const { assignmentId, versionId } = req.params;
+      const reviewerId = req.userId;
+
+      const assignment = await getReviewerAssignmentOr404(
+        assignmentId,
+        reviewerId,
+      );
+      if (!assignment) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Assignment not found" });
+      }
+
+      if (!isValidObjectId(versionId)) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid version id" });
+      }
+
+      const version = await ProposalVersion.findOne({
+        _id: versionId,
+        proposal: assignment.proposal._id,
+        kind: "submitted",
+      }).lean();
+
+      if (!version) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Version not found" });
+      }
+
+      const comments = await ReviewComment.find({
+        assignment: assignment._id,
+        proposalVersion: version._id,
+      })
+        .sort({ createdAt: -1 })
+        .lean();
+
+      return res.status(200).json({ success: true, version, comments });
+    } catch (error) {
+      console.log("getVersionForReview error:", error);
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  }
 
   /**
    * POST /reviewer/assignments/:assignmentId/comments
