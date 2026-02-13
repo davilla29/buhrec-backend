@@ -248,7 +248,44 @@ class ReviewerController {
    * GET /reviewer/assignments/:assignmentId/proposal/versions
    * Review updated proposal: list all submitted versions (latest first)
    */
-  static async listSubmittedVersions(req, res) {}
+  static async listSubmittedVersions(req, res) {
+    try {
+      const { assignmentId } = req.params;
+      const reviewerId = req.userId;
+
+      const assignment = await getReviewerAssignmentOr404(
+        assignmentId,
+        reviewerId,
+      );
+      if (!assignment) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Assignment not found" });
+      }
+
+      if (
+        !["accepted", "in_progress", "submitted"].includes(assignment.status)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Accept the assignment before viewing versions",
+        });
+      }
+
+      const versions = await ProposalVersion.find({
+        proposal: assignment.proposal._id,
+        kind: "submitted",
+      })
+        .sort({ versionNumber: -1 })
+        .select("proposal versionNumber kind changeNote createdAt documents")
+        .lean();
+
+      return res.status(200).json({ success: true, versions });
+    } catch (error) {
+      console.log("listSubmittedVersions error:", error);
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  }
 
   /**
    * GET /reviewer/assignments/:assignmentId/proposal/version/:versionId
