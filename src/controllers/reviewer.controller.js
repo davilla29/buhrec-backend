@@ -175,7 +175,74 @@ class ReviewerController {
    * GET /reviewer/assignments/:assignmentId/proposal
    * Review proposal (loads proposal + latest submitted version)
    */
-  static async getProposalForReview(req, res) {}
+  static async getProposalForReview(req, res) {
+    try {
+      const { assignmentId } = req.params;
+      const reviewerId = req.userId;
+
+      const assignment = await getReviewerAssignmentOr404(
+        assignmentId,
+        reviewerId,
+      );
+      if (!assignment) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Assignment not found" });
+      }
+
+      if (
+        !["accepted", "in_progress", "submitted"].includes(assignment.status)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Accept the assignment before reviewing the proposal",
+        });
+      }
+
+      // Mark as in progress the first time they open the proposal
+      if (assignment.status === "accepted") {
+        assignment.status = "in_progress";
+        await assignment.save();
+      }
+
+      const proposal = await Proposal.findById(assignment.proposal._id).lean();
+      if (!proposal) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Proposal not found" });
+      }
+
+      const latestVersion = await getLatestSubmittedVersion(proposal._id);
+      if (!latestVersion) {
+        return res.status(404).json({
+          success: false,
+          message: "No submitted version found for this proposal",
+        });
+      }
+
+      // comment count for this version
+      const commentCount = await ReviewComment.countDocuments({
+        proposal: proposal._id,
+        proposalVersion: latestVersion._id,
+        isVisibleToResearcher: true,
+      });
+
+      return res.status(200).json({
+        success: true,
+        proposal,
+        version: latestVersion,
+        commentCount,
+        assignment: {
+          _id: assignment._id,
+          status: assignment.status,
+          dueAt: assignment.dueAt,
+        },
+      });
+    } catch (error) {
+      console.log("getProposalForReview error:", error);
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  }
 
   /**
    * GET /reviewer/assignments/:assignmentId/proposal/versions
