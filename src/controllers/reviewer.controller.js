@@ -86,7 +86,45 @@ class ReviewerController {
    * PATCH /reviewer/assignments/:assignmentId/accept
    * Accept assignment
    */
-  static async acceptAssignment(req, res) {}
+  static async acceptAssignment(req, res) {
+    try {
+      const { assignmentId } = req.params;
+      const reviewerId = req.userId;
+
+      const assignment = await getReviewerAssignmentOr404(
+        assignmentId,
+        reviewerId,
+      );
+      if (!assignment) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Assignment not found" });
+      }
+
+      if (assignment.status !== "assigned") {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot accept assignment in status '${assignment.status}'`,
+        });
+      }
+
+      assignment.status = "accepted";
+      assignment.acceptedAt = new Date();
+      assignment.declineReason = "";
+      assignment.rejectedAt = undefined;
+
+      await assignment.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Assignment accepted",
+        assignment,
+      });
+    } catch (error) {
+      console.log("acceptAssignment error:", error);
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  }
 
   /**
    * PATCH /reviewer/assignments/:assignmentId/decline
