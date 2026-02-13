@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { Proposal } from "../models/Proposal.js";
 import { ProposalVersion } from "../models/ProposalVersion.js";
 import { ReviewComment } from "../models/ReviewComment.js";
+import { ReviewAssignment } from "../models/ReviewAssignment.js";
 import { generateUniqueApplicationId } from "../utils/generateApplicationId.js";
 import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
 
@@ -187,7 +188,9 @@ class ResearcherController {
 
       // mark awaiting payment
       proposal.status = "Awaiting Payment";
+      proposal.payment = proposal.payment || {};
       proposal.payment.status = "pending";
+      proposal.payment.txRef = `TX-${proposal.applicationId}-${Date.now()}`;
 
       // txRef you can track back to proposal reliably
       proposal.payment.txRef = `TX-${proposal.applicationId}-${Date.now()}`;
@@ -197,11 +200,20 @@ class ResearcherController {
       // Call Flutterwave initialize payment
       // Return payment link to frontend (it opens it)
       // You will implement flutterwave service using your secret key
+      const researcher = await Researcher.findById(req.userId).select(
+        "email fullName",
+      );
+      if (!researcher)
+        return res
+          .status(401)
+          .json({ success: false, message: "Unauthorized" });
+
       const paymentLink = await req.flutterwave.init({
         amount: 7000,
         currency: "NGN",
         tx_ref: proposal.payment.txRef,
-        customer: { email: req.user.email, name: req.user.fullName },
+
+        customer: { email: researcher.email, name: researcher.fullName },
         meta: {
           proposalId: proposal._id.toString(),
           applicationId: proposal.applicationId,
@@ -459,9 +471,24 @@ class ResearcherController {
         { session },
       );
 
+      // ✅ Check if there is an "active" assignment for this proposal
+      // Active means a reviewer is still responsible for it.
+      const activeAssignment = await ReviewAssignment.findOne({
+        proposal: proposal._id,
+        status: { $in: ["assigned", "accepted", "in_progress"] },
+      })
+        .select("_id status reviewer")
+        .session(session)
+        .lean();
+
+      // ✅ Update proposal pointers + status based 
       proposal.currentVersion = newV[0]._id;
       proposal.versionCount = nextVersionNumber;
-      proposal.status = "Under Review";
+
+      proposal.status = activeAssignment
+        ? "Under Review"
+        : "Waiting to be assigned";
+
       await proposal.save({ session });
 
       await session.commitTransaction();
@@ -471,6 +498,8 @@ class ResearcherController {
         success: true,
         proposal,
         version: newV[0],
+        hasActiveAssignment: Boolean(activeAssignment),
+        assignmentStatus: activeAssignment?.status || null,
       });
     } catch (err) {
       await session.abortTransaction();
