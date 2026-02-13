@@ -407,8 +407,7 @@ class ReviewerController {
     }
   }
 
-  
-  // List comments for a version 
+  // List comments for a version
   static async listComments(req, res) {
     try {
       const { assignmentId } = req.params;
@@ -446,9 +445,75 @@ class ReviewerController {
     }
   }
 
-  
   // Approve or reject proposal or request changes
-  static async submitDecision(req, res) {}
+  static async submitDecision(req, res) {
+    try {
+      const { assignmentId } = req.params;
+      const reviewerId = req.userId;
+      const { decision, reason = "" } = req.body;
+
+      const allowed = ["approve", "reject", "changes_requested"];
+      if (!allowed.includes(decision)) {
+        return res.status(400).json({
+          success: false,
+          message: `decision must be one of: ${allowed.join(", ")}`,
+        });
+      }
+
+      const assignment = await getReviewerAssignmentOr404(
+        assignmentId,
+        reviewerId,
+      );
+      if (!assignment) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Assignment not found" });
+      }
+
+      if (!["accepted", "in_progress"].includes(assignment.status)) {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot submit decision in status '${assignment.status}'`,
+        });
+      }
+
+      // Save decision on assignment
+      assignment.decision = decision;
+      assignment.decisionReason = String(reason || "").trim();
+      assignment.decidedAt = new Date();
+      assignment.status = "submitted";
+
+      await assignment.save();
+
+      // Optional: update Proposal stage/status to reflect reviewer outcome.
+      const proposalUpdate = {};
+      if (decision === "approve") {
+        proposalUpdate.status = "Approved";
+        proposalUpdate.stage = "Approved";
+      } else if (decision === "reject") {
+        proposalUpdate.status = "Rejected";
+        proposalUpdate.stage = "Rejected";
+      } else {
+        proposalUpdate.status = "Awaiting modifications";
+        proposalUpdate.stage = "Awaiting modifications";
+      }
+
+      await Proposal.updateOne(
+        { _id: assignment.proposal._id },
+        { $set: proposalUpdate },
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: "Decision submitted",
+        assignment,
+        proposalUpdate,
+      });
+    } catch (error) {
+      console.log("submitDecision error:", error);
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  }
 }
 
 export default ReviewerController;
