@@ -131,7 +131,45 @@ class ReviewerController {
    * Decline assignment + reason
    * body: { reason: "..." }
    */
-  static async declineAssignment(req, res) {}
+  static async declineAssignment(req, res) {
+    try {
+      const { assignmentId } = req.params;
+      const reviewerId = req.userId;
+      const { reason = "" } = req.body;
+
+      const assignment = await getReviewerAssignmentOr404(
+        assignmentId,
+        reviewerId,
+      );
+      if (!assignment) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Assignment not found" });
+      }
+
+      if (assignment.status !== "assigned") {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot decline assignment in status '${assignment.status}'`,
+        });
+      }
+
+      assignment.status = "rejected";
+      assignment.rejectedAt = new Date();
+      assignment.declineReason = String(reason || "").trim();
+
+      await assignment.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Assignment declined",
+        assignment,
+      });
+    } catch (error) {
+      console.log("declineAssignment error:", error);
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  }
 
   /**
    * GET /reviewer/assignments/:assignmentId/proposal
