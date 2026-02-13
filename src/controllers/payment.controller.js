@@ -69,6 +69,14 @@ export class PaymentController {
 
       const event = req.body;
 
+      const secretHash = process.env.FLUTTERWAVE_SECRET_HASH;
+
+      const signature = req.headers["verif-hash"];
+
+      if (!signature || signature !== secretHash) {
+        return res.status(401).send("Invalid webhook signature");
+      }
+
       // Extract tx_ref and transaction id from event data
       const tx_ref = event?.data?.tx_ref;
       const transaction_id = event?.data?.id;

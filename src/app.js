@@ -6,6 +6,7 @@ import authRoutes from "./routes/auth.route.js";
 import adminRoutes from "./routes/admin.route.js";
 import researcherRoutes from "./routes/researcher.route.js";
 import reviewerRoutes from "./routes/reviewer.route.js";
+import paymentRoutes from "./routes/payment.route.js";
 
 
 
@@ -29,6 +30,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/researcher", researcherRoutes);
 app.use("/api/reviewer", reviewerRoutes);
+app.use("/api/payments", paymentRoutes);
 
 
 // 404 Handler for unknown API routes
