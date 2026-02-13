@@ -112,9 +112,21 @@ class ReviewerController {
 
       await assignment.save();
 
+      // Update proposal status (your exact rule)
+      await Proposal.updateOne(
+        { _id: assignment.proposal._id },
+        {
+          $set: {
+            status: "Under Review",
+            lastStatusChangedBy: reviewerId,
+            lastStatusChangedAt: new Date(),
+          },
+        },
+      );
+
       return res.status(200).json({
         success: true,
-        message: "Assignment accepted",
+        message: "Assignment accepted. Proposal is now Under Review.",
         assignment,
       });
     } catch (error) {
@@ -485,29 +497,46 @@ class ReviewerController {
 
       await assignment.save();
 
-      // Optional: update Proposal stage/status to reflect reviewer outcome.
-      const proposalUpdate = {};
+      // Map decision -> your Proposal.status
+      const now = new Date();
+      const proposalSet = {
+        lastStatusChangedBy: reviewerId,
+        lastStatusChangedAt: now,
+      };
+
+      // Clear old timestamps safely
+      const proposalUnset = {
+        approvedAt: "",
+        rejectedAt: "",
+      };
+
       if (decision === "approve") {
-        proposalUpdate.status = "Approved";
-        proposalUpdate.stage = "Approved";
+        proposalSet.status = "Approved";
+        proposalSet.approvedAt = now;
+        // don't unset approvedAt
+        delete proposalUnset.approvedAt;
       } else if (decision === "reject") {
-        proposalUpdate.status = "Rejected";
-        proposalUpdate.stage = "Rejected";
+        proposalSet.status = "Rejected";
+        proposalSet.rejectedAt = now;
+        delete proposalUnset.rejectedAt;
       } else {
-        proposalUpdate.status = "Awaiting modifications";
-        proposalUpdate.stage = "Awaiting modifications";
+        proposalSet.status = "Awaiting Modifications";
       }
 
       await Proposal.updateOne(
         { _id: assignment.proposal._id },
-        { $set: proposalUpdate },
+        {
+          $set: proposalSet,
+          $unset: proposalUnset,
+          $inc: { reviewCount: 1 }, 
+        },
       );
 
       return res.status(200).json({
         success: true,
-        message: "Decision submitted",
+        message: "Decision submitted successfully",
         assignment,
-        proposalUpdate,
+        proposalStatus: proposalSet.status,
       });
     } catch (error) {
       console.log("submitDecision error:", error);
