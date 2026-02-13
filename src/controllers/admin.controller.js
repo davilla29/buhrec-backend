@@ -182,7 +182,7 @@ class AdminController {
       // OPTIONAL: attach ongoing assignments count
       const reviewerIds = reviewers.map((r) => r._id);
 
-      const ongoingCounts = await Assignment.aggregate([
+      const ongoingCounts = await ReviewAssignment.aggregate([
         {
           $match: {
             reviewer: { $in: reviewerIds },
@@ -276,6 +276,150 @@ class AdminController {
         success: false,
         message: "Server error",
       });
+    }
+  }
+
+  // Assign a reviewer to a proposal
+  static async assignReviewerToProposal(req, res) {
+    try {
+      const { proposalId } = req.params;
+      const { reviewerId, dueAt } = req.body;
+
+      if (!reviewerId) {
+        return res.status(400).json({
+          success: false,
+          message: "reviewerId is required",
+        });
+      }
+
+      const proposal = await Proposal.findById(proposalId);
+      if (!proposal) {
+        return res.status(404).json({
+          success: false,
+          message: "Proposal not found",
+        });
+      }
+
+      // Proposal must be paid/submitted-ish before assigning
+      // Adjust if your flow allows assignment at other stages
+      const assignableStatuses = [
+        "Paid",
+        "Waiting to be assigned",
+        "Under Review",
+      ];
+      if (!assignableStatuses.includes(proposal.status)) {
+        return res.status(400).json({
+          success: false,
+          message: `Proposal cannot be assigned in status '${proposal.status}'`,
+        });
+      }
+
+      const reviewer = await Reviewer.findById(reviewerId).select(
+        "isActive fullName email",
+      );
+      if (!reviewer || !reviewer.isActive) {
+        return res.status(400).json({
+          success: false,
+          message: "Reviewer must exist and be active",
+        });
+      }
+
+      // Prevent duplicates
+      const existing = await ReviewAssignment.findOne({
+        proposal: proposal._id,
+        reviewer: reviewer._id,
+      }).lean();
+
+      if (existing) {
+        return res.status(409).json({
+          success: false,
+          message: "This reviewer is already assigned to this proposal",
+        });
+      }
+
+      // Create assignment
+      const assignment = await ReviewAssignment.create({
+        proposal: proposal._id,
+        reviewer: reviewer._id,
+        status: "assigned",
+        assignedBy: req.userId, // admin id
+        assignedAt: new Date(),
+        ...(dueAt ? { dueAt: new Date(dueAt) } : {}),
+      });
+
+      // Update proposal meta
+      // Once assigned (but not yet accepted), proposal should be "Waiting to be assigned"
+      const now = new Date();
+      proposal.status = "Waiting to be assigned";
+      proposal.assignedAt = now;
+      proposal.lastStatusChangedBy = reviewer._id; // optional: you can also set admin id if you want
+      proposal.lastStatusChangedAt = now;
+
+      await proposal.save();
+
+      return res.status(201).json({
+        success: true,
+        message: "Reviewer assigned successfully",
+        data: {
+          assignment,
+          proposal: {
+            _id: proposal._id,
+            title: proposal.title,
+            applicationId: proposal.applicationId,
+            status: proposal.status,
+            assignedAt: proposal.assignedAt,
+          },
+          reviewer: {
+            _id: reviewer._id,
+            fullName: reviewer.fullName,
+            email: reviewer.email,
+          },
+        },
+      });
+    } catch (error) {
+      console.error("assignReviewerToProposal error:", error);
+
+      // Handle duplicate key error from schema unique index
+      if (error?.code === 11000) {
+        return res.status(409).json({
+          success: false,
+          message: "Duplicate assignment not allowed",
+        });
+      }
+
+      return res.status(500).json({
+        success: false,
+        message: "Server error",
+      });
+    }
+  }
+
+  // View assignments for a proposal
+  static async listProposalAssignments(req, res) {
+    try {
+      const { proposalId } = req.params;
+
+      const proposal = await Proposal.findById(proposalId).select(
+        "title applicationId status",
+      );
+      if (!proposal) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Proposal not found" });
+      }
+
+      const assignments = await ReviewAssignment.find({ proposal: proposalId })
+        .populate(
+          "reviewer",
+          "fullName email institution title specialization isActive photoUrl",
+        )
+        .sort({ createdAt: -1 })
+        .lean();
+
+      return res.status(200).json({ success: true, proposal, assignments });
+    } catch (error) {
+      console.error("listProposalAssignments error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
     }
   }
 

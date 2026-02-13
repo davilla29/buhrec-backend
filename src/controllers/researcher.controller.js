@@ -47,7 +47,7 @@ function validateDraftRequirements(draft) {
   return null;
 }
 
-class ProposalController {
+class ResearcherController {
   static async createProposal(req, res) {
     try {
       const { title } = req.body;
@@ -481,4 +481,4 @@ class ProposalController {
   }
 }
 
-export default ProposalController;
+export default ResearcherController;

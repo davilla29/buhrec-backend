@@ -31,6 +31,14 @@ router.post(
   AdminController.addReviewer,
 );
 
+// Assign a reviewer to a proposal
+router.post(
+  "/proposals/:proposalId/assign-reviewer",
+  verifyToken,
+  isAdmin,
+  AdminController.assignReviewerToProposal,
+);
+
 router.patch(
   "/reviewers/:id/deactivate",
   verifyToken,

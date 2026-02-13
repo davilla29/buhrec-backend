@@ -5,6 +5,9 @@ import cors from "cors";
 import authRoutes from "./routes/auth.route.js";
 import adminRoutes from "./routes/admin.route.js";
 import researcherRoutes from "./routes/researcher.route.js";
+import reviewerRoutes from "./routes/reviewer.route.js";
+
+
 
 const app = express();
 
@@ -25,6 +28,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/researcher", researcherRoutes);
+app.use("/api/reviewer", reviewerRoutes);
+
 
 // 404 Handler for unknown API routes
 app.use((req, res, next) => {
