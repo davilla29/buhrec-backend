@@ -37,7 +37,24 @@ class ReviewerController {
    * GET /reviewer/assignments
    * View assignments list
    */
-  static async listAssignments(req, res) {}
+  static async listAssignments(req, res) {
+    try {
+      const reviewerId = req.userId;
+
+      const assignments = await ReviewAssignment.find({ reviewer: reviewerId })
+        .sort({ createdAt: -1 })
+        .populate({
+          path: "proposal",
+          select: "title status stage researcher createdAt updatedAt",
+        })
+        .lean();
+
+      return res.status(200).json({ success: true, assignments });
+    } catch (error) {
+      console.log("listAssignments error:", error);
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  }
 
   /**
    * GET /reviewer/assignments/:assignmentId
