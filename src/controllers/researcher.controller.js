@@ -1,11 +1,13 @@
 import mongoose from "mongoose";
 import { Proposal } from "../models/Proposal.js";
 import { Researcher } from "../models/Researcher.js";
+import { Administrator } from "../models/Administrator.js";
 import { ProposalVersion } from "../models/ProposalVersion.js";
 import { ReviewComment } from "../models/ReviewComment.js";
 import { ReviewAssignment } from "../models/ReviewAssignment.js";
 import { generateUniqueApplicationId } from "../utils/generateApplicationId.js";
 import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
+import { createNotification } from "./notification.controller.js";
 
 async function uploadFilesToStorage(
   files = [],
@@ -304,6 +306,19 @@ class ResearcherController {
       await session.commitTransaction();
       session.endSession();
 
+      // Notify all administrators
+      const admins = await Administrator.find({}).select("_id fullName email");
+
+      for (const admin of admins) {
+        await createNotification({
+          title: "New Proposal Submitted",
+          message: `Researcher has submitted a proposal titled "${proposal.title}" and it is awaiting assignment.`,
+          proposalId: proposal._id,
+          senderId: req.userId,
+          receiverId: admin._id,
+        });
+      }
+
       return res.status(200).json({ success: true, proposal, version: v1[0] });
     } catch (err) {
       await session.abortTransaction();
@@ -494,6 +509,17 @@ class ResearcherController {
 
       await session.commitTransaction();
       session.endSession();
+
+      // Notify assigned reviewer if proposal is still actively assigned
+      if (activeAssignment) {
+        await createNotification({
+          title: "Updated Proposal Submitted",
+          message: `The researcher has submitted an updated version of the proposal "${proposal.title}". Please review the changes.`,
+          proposalId: proposal._id,
+          senderId: req.userId,
+          receiverId: activeAssignment.reviewer,
+        });
+      }
 
       return res.status(200).json({
         success: true,
