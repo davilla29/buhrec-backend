@@ -20,7 +20,7 @@ export const sendAccountCreationEmail = async ({
     });
     await transporter.sendMail({
       from: senderEmail,
-      to: email,
+      to: userEmail,
       subject: "Your Reviewer Account Has Been Created",
       html,
     });
@@ -52,3 +52,5 @@ export const sendVerificationCodeEmail = async ({
     console.error("Error sending email:", error);
   }
 };
+
+
