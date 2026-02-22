@@ -2,6 +2,7 @@ import { Notification } from "../models/Notification.js";
 import { Researcher } from "../models/Researcher.js";
 import { Reviewer } from "../models/Reviewer.js";
 import { Administrator } from "../models/Administrator.js";
+import { sendNotificationEmail } from "../mail/emailService.js";
 
 class NotificationController {
   static async createNotification({

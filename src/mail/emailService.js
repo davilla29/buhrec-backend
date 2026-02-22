@@ -2,6 +2,7 @@ import { transporter } from "./smtp.config.js";
 import {
   VERIFICATION_EMAIL_TEMPLATE,
   ACCOUNT_CREATION_EMAIL_TEMPLATE,
+  NOTIFICATION_EMAIL_TEMPLATE,
 } from "./emailTemplates.js";
 
 const senderEmail = '"BUHREC System" <bolarinwadavid3@gmail.com>';
@@ -53,7 +54,6 @@ export const sendVerificationCodeEmail = async ({
   }
 };
 
-
 export const sendNotificationEmail = async ({
   receiverEmail,
   receiverName,
@@ -61,24 +61,19 @@ export const sendNotificationEmail = async ({
   message,
 }) => {
   try {
-    const html = `
-      <h2>Hello ${receiverName},</h2>
-      <p>You have a new notification in the BUHREC System.</p>
-      <p><strong>${title}</strong></p>
-      <p>${message}</p>
-      <br/>
-      <p>Please login to your dashboard to view more details.</p>
-    `;
+    const html = NOTIFICATION_EMAIL_TEMPLATE({
+      receiverName,
+      title,
+      message,
+    });
 
     await transporter.sendMail({
       from: senderEmail,
       to: receiverEmail,
-      subject: "You have a new notification",
+      subject: `New Notification: ${title}`,
       html,
     });
   } catch (error) {
     console.error("Error sending notification email:", error);
   }
 };
-
-

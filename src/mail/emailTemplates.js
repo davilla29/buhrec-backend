@@ -194,7 +194,6 @@ export const NOTIFICATION_EMAIL_TEMPLATE = ({
   receiverName,
   title,
   message,
-  dashboardLink,
 }) => `
 <!DOCTYPE html>
 <html lang="en">
@@ -246,22 +245,6 @@ export const NOTIFICATION_EMAIL_TEMPLATE = ({
       <p style="margin:6px 0;">${message}</p>
     </div>
 
-    <!-- CTA -->
-    <div style="text-align:center; margin:32px 0;">
-      <a href="${dashboardLink}"
-        style="
-          background-color:#2563eb;
-          color:#ffffff;
-          text-decoration:none;
-          font-weight:600;
-          padding:14px 28px;
-          border-radius:8px;
-          font-size:0.95rem;
-          display:inline-block;
-        ">
-        View Dashboard
-      </a>
-    </div>
 
     <p style="margin-top:32px; color:#334155; font-size:0.9rem;">
       Regards,<br />
