@@ -54,3 +54,31 @@ export const sendVerificationCodeEmail = async ({
 };
 
 
+export const sendNotificationEmail = async ({
+  receiverEmail,
+  receiverName,
+  title,
+  message,
+}) => {
+  try {
+    const html = `
+      <h2>Hello ${receiverName},</h2>
+      <p>You have a new notification in the BUHREC System.</p>
+      <p><strong>${title}</strong></p>
+      <p>${message}</p>
+      <br/>
+      <p>Please login to your dashboard to view more details.</p>
+    `;
+
+    await transporter.sendMail({
+      from: senderEmail,
+      to: receiverEmail,
+      subject: "You have a new notification",
+      html,
+    });
+  } catch (error) {
+    console.error("Error sending notification email:", error);
+  }
+};
+
+
