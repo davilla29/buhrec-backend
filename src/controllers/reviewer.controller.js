@@ -4,6 +4,7 @@ import { ReviewAssignment } from "../models/ReviewAssignment.js";
 import { Proposal } from "../models/Proposal.js";
 import { ProposalVersion } from "../models/ProposalVersion.js";
 import { ReviewComment } from "../models/ReviewComment.js";
+import { createNotification } from "./notification.controller.js";
 
 function isValidObjectId(id) {
   return mongoose.Types.ObjectId.isValid(id);
@@ -528,9 +529,29 @@ class ReviewerController {
         {
           $set: proposalSet,
           $unset: proposalUnset,
-          $inc: { reviewCount: 1 }, 
+          $inc: { reviewCount: 1 },
         },
       );
+
+      // Notify the researcher about the review decision
+      if (assignment.proposal?.researcher) {
+        let message;
+        if (decision === "approve") {
+          message = `Your proposal "${assignment.proposal.title}" has been approved by the reviewer.`;
+        } else if (decision === "reject") {
+          message = `Your proposal "${assignment.proposal.title}" has been rejected by the reviewer.`;
+        } else {
+          message = `The reviewer has requested changes on your proposal "${assignment.proposal.title}".`;
+        }
+
+        await createNotification({
+          title: "Proposal Review Update",
+          message: message,
+          proposalId: assignment.proposal._id,
+          senderId: reviewerId, // the reviewer
+          receiverId: assignment.proposal.researcher, // the researcher
+        });
+      }
 
       return res.status(200).json({
         success: true,

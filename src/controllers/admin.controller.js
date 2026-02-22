@@ -1,11 +1,13 @@
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { Researcher } from "../models/Researcher.js";
+import {Proposal} from "../models/Proposal.js";
 import { Reviewer } from "../models/Reviewer.js";
 import { ReviewAssignment } from "../models/ReviewAssignment.js";
 import { Administrator } from "../models/Administrator.js";
 import { sendAccountCreationEmail } from "../mail/emailService.js";
 import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
+import { createNotification } from "./notification.controller.js";
 
 // small sanitize helper (don’t return password/photo buffer)
 const sanitizeReviewer = (r) => ({
@@ -356,6 +358,15 @@ class AdminController {
       proposal.lastStatusChangedAt = now;
 
       await proposal.save();
+
+      // Notify reviewer of the assignment
+      await createNotification({
+        title: "New Proposal Assigned",
+        message: `You have been assigned to review the proposal "${proposal.title}". Please check your dashboard for details.`,
+        proposalId: proposal._id,
+        senderId: req.userId,
+        receiverId: reviewer._id,
+      });
 
       return res.status(201).json({
         success: true,
