@@ -1,14 +1,48 @@
 import { Notification } from "../models/Notification.js";
-
-async function emailExistsAnywhere(email) {
-  return (
-    (await Researcher.exists({ email })) ||
-    (await Reviewer.exists({ email })) ||
-    (await Administrator.exists({ email }))
-  );
-}
+import { Researcher } from "../models/Researcher.js";
+import { Reviewer } from "../models/Reviewer.js";
+import { Administrator } from "../models/Administrator.js";
 
 class NotificationController {
+  static async createNotification({
+    title,
+    message,
+    proposalId,
+    senderId,
+    receiverId,
+  }) {
+    try {
+      // 1️⃣ Save notification in DB
+      const notification = await Notification.create({
+        title,
+        message,
+        proposalId,
+        sender: senderId,
+        receiver: receiverId,
+      });
+
+      // 2️⃣ Find receiver in any model
+      let receiver =
+        (await Researcher.findById(receiverId)) ||
+        (await Reviewer.findById(receiverId)) ||
+        (await Administrator.findById(receiverId));
+
+      // 3️⃣ Send Email
+      if (receiver?.email) {
+        await sendNotificationEmail({
+          receiverEmail: receiver.email,
+          receiverName: receiver.fullName || "User",
+          title,
+          message,
+        });
+      }
+
+      return notification;
+    } catch (error) {
+      throw new Error(error.message);
+    }
+  }
+
   static async getMyNotifications(req, res) {
     try {
       const notifications = await Notification.find({
