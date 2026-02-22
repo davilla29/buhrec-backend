@@ -364,7 +364,7 @@ class AdminController {
         title: "New Proposal Assigned",
         message: `You have been assigned to review the proposal "${proposal.title}". Please check your dashboard for details.`,
         proposalId: proposal._id,
-        senderId: req.userId, // Admin who assigned
+        senderId: req.userId,
         receiverId: reviewer._id,
       });
 
