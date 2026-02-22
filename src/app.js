@@ -7,8 +7,7 @@ import adminRoutes from "./routes/admin.route.js";
 import researcherRoutes from "./routes/researcher.route.js";
 import reviewerRoutes from "./routes/reviewer.route.js";
 import paymentRoutes from "./routes/payment.route.js";
-
-
+import notificationRoutes from "./routes/notification.route.js";
 
 const app = express();
 
@@ -31,7 +30,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/researcher", researcherRoutes);
 app.use("/api/reviewer", reviewerRoutes);
 app.use("/api/payments", paymentRoutes);
-
+app.use("/api/notifications", notificationRoutes);
 
 // 404 Handler for unknown API routes
 app.use((req, res, next) => {
