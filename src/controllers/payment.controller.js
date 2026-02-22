@@ -1,7 +1,7 @@
 // controllers/paymentController.js
 import { Proposal } from "../models/Proposal.js";
 
-export class PaymentController {
+class PaymentController {
   // Flutterwave redirect callback: /flutterwave/callback?status=successful&tx_ref=...&transaction_id=...
   static async flutterwaveCallback(req, res) {
     try {
@@ -112,3 +112,5 @@ export class PaymentController {
     }
   }
 }
+
+export default PaymentController;

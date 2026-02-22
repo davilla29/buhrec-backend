@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { Proposal } from "../models/Proposal.js";
+import { Researcher } from "../models/Researcher.js";
 import { ProposalVersion } from "../models/ProposalVersion.js";
 import { ReviewComment } from "../models/ReviewComment.js";
 import { ReviewAssignment } from "../models/ReviewAssignment.js";
@@ -481,7 +482,7 @@ class ResearcherController {
         .session(session)
         .lean();
 
-      // ✅ Update proposal pointers + status based 
+      // ✅ Update proposal pointers + status based
       proposal.currentVersion = newV[0]._id;
       proposal.versionCount = nextVersionNumber;
 
