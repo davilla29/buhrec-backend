@@ -510,6 +510,17 @@ class ResearcherController {
       await session.commitTransaction();
       session.endSession();
 
+      // Notify assigned reviewer if proposal is still actively assigned
+      if (activeAssignment) {
+        await createNotification({
+          title: "Updated Proposal Submitted",
+          message: `The researcher has submitted an updated version of the proposal "${proposal.title}". Please review the changes.`,
+          proposalId: proposal._id,
+          senderId: req.userId,
+          receiverId: activeAssignment.reviewer,
+        });
+      }
+
       return res.status(200).json({
         success: true,
         proposal,
