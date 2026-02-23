@@ -7,7 +7,7 @@ import { ReviewComment } from "../models/ReviewComment.js";
 import { ReviewAssignment } from "../models/ReviewAssignment.js";
 import { generateUniqueApplicationId } from "../utils/generateApplicationId.js";
 import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
-import { createNotification } from "./notification.controller.js";
+import createNotification from "./notification.controller.js";
 
 async function uploadFilesToStorage(
   files = [],
