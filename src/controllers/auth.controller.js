@@ -309,11 +309,12 @@ class AuthController {
       const normalizedEmail = email.trim().toLowerCase();
 
       // Prevent duplicates
-      const exists = await Administrator.exists({ email: normalizedEmail });
+      // const exists = await Administrator.exists({ email: normalizedEmail });
+      const exists = await emailExistsAnywhere(normalizedEmail);
       if (exists) {
         return res.status(409).json({
           success: false,
-          message: "Admin with this email already exists",
+          message: "This email already exists",
         });
       }
 

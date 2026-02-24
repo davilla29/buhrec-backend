@@ -87,11 +87,6 @@ class AdminController {
         });
       }
 
-      // If a photo was uploaded, it will be in req.file (multer memory storage)
-      const photo = req.file
-        ? { data: req.file.buffer, contentType: req.file.mimetype }
-        : undefined;
-
       // auto-generate password
       const generatedPassword = crypto.randomBytes(8).toString("base64"); // 16-ish chars
       const hashedPassword = await bcrypt.hash(generatedPassword, 12);
