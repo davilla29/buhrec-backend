@@ -100,8 +100,10 @@ export const VERIFICATION_EMAIL_TEMPLATE = ({
 export const ACCOUNT_CREATION_EMAIL_TEMPLATE = ({
   userName,
   userEmail,
+  title,
   generatedPassword,
   loginLink,
+  profileImageUrl,
 }) => `
 <!DOCTYPE html>
 <html lang="en">
@@ -134,8 +136,27 @@ export const ACCOUNT_CREATION_EMAIL_TEMPLATE = ({
   ">
 
     <p style="color:#334155; font-size:0.95rem;">
-      Hello <strong>${userName}</strong>,
+      Hello <strong>${title} ${userName}</strong>,
     </p>
+
+    ${
+      profileImageUrl
+        ? `
+    <div style="text-align:center; margin:20px 0;">
+      <img src="${profileImageUrl}"
+        alt="Profile Picture"
+        style="
+          width:120px;
+          height:120px;
+          object-fit:cover;
+          border-radius:50%;
+          border:3px solid #2563eb;
+        "
+      />
+    </div>
+  `
+        : ""
+    }
 
     <p style="color:#334155; font-size:0.95rem; line-height:1.6;">
       Your account has been created successfully. Below are your login credentials.
@@ -151,11 +172,11 @@ export const ACCOUNT_CREATION_EMAIL_TEMPLATE = ({
       border:1px solid #bfdbfe;
     ">
       <p style="margin:6px 0;"><strong>Email:</strong> ${userEmail}</p>
-      <p style="margin:6px 0;"><strong>Temporary Password:</strong> ${generatedPassword}</p>
+      <p style="margin:6px 0;"><strong>Password:</strong> ${generatedPassword}</p>
     </div>
 
     <p style="color:#475569; font-size:0.9rem;">
-      Please log in immediately and change your password.
+      Please log in immediately.
     </p>
 
     <!-- CTA -->

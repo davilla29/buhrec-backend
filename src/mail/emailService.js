@@ -9,15 +9,19 @@ const senderEmail = '"BUHREC System" <bolarinwadavid3@gmail.com>';
 export const sendAccountCreationEmail = async ({
   fullName,
   userEmail,
+  title,
   generatedPassword,
   loginLink,
+  profileImageUrl,
 }) => {
   try {
     const html = ACCOUNT_CREATION_EMAIL_TEMPLATE({
       userName: fullName,
       userEmail,
+      title,
       generatedPassword,
       loginLink,
+      profileImageUrl,
     });
     await transporter.sendMail({
       from: senderEmail,

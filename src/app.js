@@ -42,4 +42,28 @@ app.use((req, res, next) => {
   next();
 });
 
+// Global error handler (MUST be after routes)
+app.use((err, req, res, next) => {
+  console.error("Global Error:", err.message);
+
+  if (err.message === "Only JPG, PNG, or WEBP images are allowed") {
+    return res.status(400).json({
+      success: false,
+      message: err.message,
+    });
+  }
+
+  if (err.code === "LIMIT_FILE_SIZE") {
+    return res.status(400).json({
+      success: false,
+      message: "File size exceeds 5MB limit",
+    });
+  }
+
+  return res.status(500).json({
+    success: false,
+    message: "Something went wrong",
+  });
+});
+
 export default app;

@@ -2,7 +2,7 @@ import jwt from "jsonwebtoken";
 
 export const generateTokenAndSetCookie = (res, userId, role) => {
   if (!role) throw new Error("Role is required to generate auth token");
-  
+
   const token = jwt.sign({ userId, role }, process.env.JWT_SECRET, {
     expiresIn: "7d",
   });

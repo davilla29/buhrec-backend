@@ -4,7 +4,7 @@ import { ReviewAssignment } from "../models/ReviewAssignment.js";
 import { Proposal } from "../models/Proposal.js";
 import { ProposalVersion } from "../models/ProposalVersion.js";
 import { ReviewComment } from "../models/ReviewComment.js";
-import { createNotification } from "./notification.controller.js";
+import createNotification from "./notification.controller.js";
 
 function isValidObjectId(id) {
   return mongoose.Types.ObjectId.isValid(id);

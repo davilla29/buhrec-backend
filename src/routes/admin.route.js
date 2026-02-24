@@ -6,12 +6,6 @@ import { verifyToken, isAdmin } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-router.get(
-  "/reviewers/:id/photo",
-  verifyToken,
-  isAdmin,
-  AdminController.getReviewerPhoto,
-);
 // Get all reviewers
 router.get("/reviewers", verifyToken, isAdmin, AdminController.getAllReviewers);
 
