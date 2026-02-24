@@ -102,6 +102,7 @@ export const ACCOUNT_CREATION_EMAIL_TEMPLATE = ({
   userEmail,
   generatedPassword,
   loginLink,
+  profileImageUrl,
 }) => `
 <!DOCTYPE html>
 <html lang="en">
@@ -136,6 +137,25 @@ export const ACCOUNT_CREATION_EMAIL_TEMPLATE = ({
     <p style="color:#334155; font-size:0.95rem;">
       Hello <strong>${userName}</strong>,
     </p>
+
+    ${
+      profileImageUrl
+        ? `
+    <div style="text-align:center; margin:20px 0;">
+      <img src="${profileImageUrl}"
+        alt="Profile Picture"
+        style="
+          width:120px;
+          height:120px;
+          object-fit:cover;
+          border-radius:50%;
+          border:3px solid #2563eb;
+        "
+      />
+    </div>
+  `
+        : ""
+    }
 
     <p style="color:#334155; font-size:0.95rem; line-height:1.6;">
       Your account has been created successfully. Below are your login credentials.

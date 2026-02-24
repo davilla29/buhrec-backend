@@ -11,6 +11,7 @@ export const sendAccountCreationEmail = async ({
   userEmail,
   generatedPassword,
   loginLink,
+  profileImageUrl,
 }) => {
   try {
     const html = ACCOUNT_CREATION_EMAIL_TEMPLATE({
@@ -18,6 +19,7 @@ export const sendAccountCreationEmail = async ({
       userEmail,
       generatedPassword,
       loginLink,
+      profileImageUrl,
     });
     await transporter.sendMail({
       from: senderEmail,

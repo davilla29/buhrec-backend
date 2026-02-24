@@ -133,6 +133,7 @@ class AdminController {
           userEmail: reviewer.email,
           generatedPassword,
           loginLink,
+          profileImageUrl: photoUrl || null,
         });
       } catch (mailErr) {
         // If email fails, you may choose to keep the account but notify admin
