@@ -172,11 +172,11 @@ export const ACCOUNT_CREATION_EMAIL_TEMPLATE = ({
       border:1px solid #bfdbfe;
     ">
       <p style="margin:6px 0;"><strong>Email:</strong> ${userEmail}</p>
-      <p style="margin:6px 0;"><strong>Temporary Password:</strong> ${generatedPassword}</p>
+      <p style="margin:6px 0;"><strong>Password:</strong> ${generatedPassword}</p>
     </div>
 
     <p style="color:#475569; font-size:0.9rem;">
-      Please log in immediately and change your password.
+      Please log in immediately.
     </p>
 
     <!-- CTA -->
