@@ -169,8 +169,8 @@ class AdminController {
   static async getAllReviewers(req, res) {
     try {
       // basic reviewer info
-      const reviewers = await Reviewer.find({ isActive: true })
-        .select("fullName title specialization institution photoUrl createdAt")
+      const reviewers = await Reviewer.find()
+        .select("fullName title isActive specialization institution photoUrl createdAt")
         .lean();
 
       // OPTIONAL: attach ongoing assignments count

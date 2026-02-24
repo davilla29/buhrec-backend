@@ -136,7 +136,7 @@ export const ACCOUNT_CREATION_EMAIL_TEMPLATE = ({
   ">
 
     <p style="color:#334155; font-size:0.95rem;">
-      Hello ${title} <strong>${userName}</strong>,
+      Hello <strong>${title} ${userName}</strong>,
     </p>
 
     ${
