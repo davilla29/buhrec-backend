@@ -9,7 +9,7 @@ const router = express.Router();
 router.use(verifyToken, isResearcher);
 
 // Create proposal shell
-router.post("/proposals", ResearcherController.createProposal);
+router.post("/create-proposal", ResearcherController.createProposal);
 
 // Save draft (version 0)
 router.put(
