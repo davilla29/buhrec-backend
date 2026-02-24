@@ -79,6 +79,14 @@ class AdminController {
           .json({ success: false, message: "Email already in use" });
       }
 
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(normalizedEmail)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid email format",
+        });
+      }
+
       // If a photo was uploaded, it will be in req.file (multer memory storage)
       const photo = req.file
         ? { data: req.file.buffer, contentType: req.file.mimetype }
