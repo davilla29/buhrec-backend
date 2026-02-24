@@ -161,19 +161,6 @@ class AdminController {
     }
   }
 
-  static async getReviewerPhoto(req, res) {
-    try {
-      const reviewer = await Reviewer.findById(req.params.id).select("photo");
-      if (!reviewer?.photo?.data) return res.sendStatus(404);
-
-      res.set("Content-Type", reviewer.photo.contentType || "image/jpeg");
-      return res.send(reviewer.photo.data);
-    } catch (e) {
-      console.error(e);
-      return res.sendStatus(500);
-    }
-  }
-
   static async getAllReviewers(req, res) {
     try {
       // basic reviewer info
