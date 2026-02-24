@@ -96,7 +96,10 @@ class ResearcherController {
           .status(404)
           .json({ success: false, message: "Proposal not found" });
 
-      // lock editing when truly locked
+      /* 
+      lock editing when truly locked
+      Editing is allowed only when it is still in draft or awaiting payment
+      */
       const lockedStatuses = ["Under Review", "Approved", "Rejected"];
       if (lockedStatuses.includes(proposal.status)) {
         return res.status(400).json({
@@ -193,9 +196,6 @@ class ResearcherController {
       proposal.status = "Awaiting Payment";
       proposal.payment = proposal.payment || {};
       proposal.payment.status = "pending";
-      proposal.payment.txRef = `TX-${proposal.applicationId}-${Date.now()}`;
-
-      // txRef you can track back to proposal reliably
       proposal.payment.txRef = `TX-${proposal.applicationId}-${Date.now()}`;
 
       await proposal.save();

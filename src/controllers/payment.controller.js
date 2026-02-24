@@ -36,7 +36,7 @@ class PaymentController {
         proposal.payment.paidAt = new Date();
         proposal.payment.raw = verification;
 
-        // Move proposal to Paid (locked, ready to submit)
+        // Move proposal to Paid (ready to submit)
         proposal.status = "Paid";
 
         await proposal.save();
