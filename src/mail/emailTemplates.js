@@ -100,6 +100,7 @@ export const VERIFICATION_EMAIL_TEMPLATE = ({
 export const ACCOUNT_CREATION_EMAIL_TEMPLATE = ({
   userName,
   userEmail,
+  title,
   generatedPassword,
   loginLink,
   profileImageUrl,
@@ -135,7 +136,7 @@ export const ACCOUNT_CREATION_EMAIL_TEMPLATE = ({
   ">
 
     <p style="color:#334155; font-size:0.95rem;">
-      Hello <strong>${userName}</strong>,
+      Hello ${title} <strong>${userName}</strong>,
     </p>
 
     ${

@@ -9,6 +9,7 @@ const senderEmail = '"BUHREC System" <bolarinwadavid3@gmail.com>';
 export const sendAccountCreationEmail = async ({
   fullName,
   userEmail,
+  title,
   generatedPassword,
   loginLink,
   profileImageUrl,
@@ -17,6 +18,7 @@ export const sendAccountCreationEmail = async ({
     const html = ACCOUNT_CREATION_EMAIL_TEMPLATE({
       userName: fullName,
       userEmail,
+      title,
       generatedPassword,
       loginLink,
       profileImageUrl,

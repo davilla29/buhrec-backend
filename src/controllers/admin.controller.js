@@ -131,6 +131,7 @@ class AdminController {
         await sendAccountCreationEmail({
           fullName: reviewer.fullName,
           userEmail: reviewer.email,
+          title: reviewer.title,
           generatedPassword,
           loginLink,
           profileImageUrl: photoUrl || null,
