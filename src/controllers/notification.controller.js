@@ -58,4 +58,3 @@ class NotificationController {
 }
 
 export default NotificationController;
-// Get user notifications

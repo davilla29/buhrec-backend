@@ -1,13 +1,13 @@
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { Researcher } from "../models/Researcher.js";
-import {Proposal} from "../models/Proposal.js";
+import { Proposal } from "../models/Proposal.js";
 import { Reviewer } from "../models/Reviewer.js";
 import { ReviewAssignment } from "../models/ReviewAssignment.js";
 import { Administrator } from "../models/Administrator.js";
 import { sendAccountCreationEmail } from "../mail/emailService.js";
 import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
-import { createNotification } from "./notification.controller.js";
+import createNotification from "./notification.controller.js";
 
 // small sanitize helper (don’t return password/photo buffer)
 const sanitizeReviewer = (r) => ({
@@ -79,10 +79,13 @@ class AdminController {
           .json({ success: false, message: "Email already in use" });
       }
 
-      // If a photo was uploaded, it will be in req.file (multer memory storage)
-      const photo = req.file
-        ? { data: req.file.buffer, contentType: req.file.mimetype }
-        : undefined;
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(normalizedEmail)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid email format",
+        });
+      }
 
       // auto-generate password
       const generatedPassword = crypto.randomBytes(8).toString("base64"); // 16-ish chars
@@ -128,8 +131,10 @@ class AdminController {
         await sendAccountCreationEmail({
           fullName: reviewer.fullName,
           userEmail: reviewer.email,
+          title: reviewer.title,
           generatedPassword,
           loginLink,
+          profileImageUrl: photoUrl || null,
         });
       } catch (mailErr) {
         // If email fails, you may choose to keep the account but notify admin
@@ -161,24 +166,11 @@ class AdminController {
     }
   }
 
-  static async getReviewerPhoto(req, res) {
-    try {
-      const reviewer = await Reviewer.findById(req.params.id).select("photo");
-      if (!reviewer?.photo?.data) return res.sendStatus(404);
-
-      res.set("Content-Type", reviewer.photo.contentType || "image/jpeg");
-      return res.send(reviewer.photo.data);
-    } catch (e) {
-      console.error(e);
-      return res.sendStatus(500);
-    }
-  }
-
   static async getAllReviewers(req, res) {
     try {
       // basic reviewer info
-      const reviewers = await Reviewer.find({ isActive: true })
-        .select("fullName title specialization institution photoUrl createdAt")
+      const reviewers = await Reviewer.find()
+        .select("fullName title isActive specialization institution photoUrl createdAt")
         .lean();
 
       // OPTIONAL: attach ongoing assignments count
