@@ -362,16 +362,13 @@ class ResearcherController {
 
   // Submit initial version (v1) after payment success
   static async submitInitial(req, res) {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-
     try {
       const { proposalId } = req.params;
 
       const proposal = await Proposal.findOne({
         _id: proposalId,
         researcher: req.userId,
-      }).session(session);
+      });
 
       if (!proposal)
         return res
@@ -395,7 +392,7 @@ class ResearcherController {
       const draft = await ProposalVersion.findOne({
         proposal: proposal._id,
         versionNumber: 0,
-      }).session(session);
+      });
 
       if (!draft)
         return res
@@ -403,31 +400,23 @@ class ResearcherController {
           .json({ success: false, message: "Draft not found" });
 
       // create version 1 snapshot from draft
-      const v1 = await ProposalVersion.create(
-        [
-          {
-            proposal: proposal._id,
-            versionNumber: 1,
-            kind: "submitted",
-            formData: draft.formData,
-            documents: draft.documents,
-            changeNote: "Initial submission",
-            createdBy: req.userId,
-            submittedAt: new Date(),
-          },
-        ],
-        { session },
-      );
+      const v1 = await ProposalVersion.create({
+        proposal: proposal._id,
+        versionNumber: 1,
+        kind: "submitted",
+        formData: draft.formData,
+        documents: draft.documents,
+        changeNote: "Initial submission",
+        createdBy: req.userId,
+        submittedAt: new Date(),
+      });
 
-      proposal.currentVersion = v1[0]._id;
+      proposal.currentVersion = v1._id;
       proposal.versionCount = 1;
       proposal.submittedAt = new Date();
       proposal.status = "Waiting to be assigned";
 
-      await proposal.save({ session });
-
-      await session.commitTransaction();
-      session.endSession();
+      await proposal.save();
 
       // Notify all administrators
       const admins = await Administrator.find({}).select("_id fullName email");
@@ -442,10 +431,8 @@ class ResearcherController {
         });
       }
 
-      return res.status(200).json({ success: true, proposal, version: v1[0] });
+      return res.status(200).json({ success: true, proposal, version: v1 });
     } catch (err) {
-      await session.abortTransaction();
-      session.endSession();
       console.log("submitInitial error:", err);
       return res.status(500).json({ success: false, message: err.message });
     }
@@ -680,9 +667,6 @@ class ResearcherController {
   // }
 
   static async submitUpdatedVersion(req, res) {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-
     try {
       const { proposalId } = req.params;
       const { formData, changeNote } = req.body;
@@ -690,7 +674,7 @@ class ResearcherController {
       const proposal = await Proposal.findOne({
         _id: proposalId,
         researcher: req.userId,
-      }).session(session);
+      });
 
       if (!proposal)
         return res
@@ -712,11 +696,10 @@ class ResearcherController {
         });
       }
 
-      // Grab existing docs from previous version to carry over untouched files
       const previousVersion = await ProposalVersion.findOne({
         proposal: proposal._id,
         versionNumber: proposal.versionCount,
-      }).session(session);
+      });
 
       let mergedDocuments = previousVersion
         ? [...previousVersion.documents]
@@ -742,43 +725,39 @@ class ResearcherController {
 
       const parsedFormData =
         typeof formData === "string" ? JSON.parse(formData) : formData;
+
       const nextVersionNumber = proposal.versionCount + 1;
 
-      const newV = await ProposalVersion.create(
-        [
-          {
-            proposal: proposal._id,
-            versionNumber: nextVersionNumber,
-            kind: "submitted",
-            formData: parsedFormData,
-            documents: mergedDocuments, // Use merged array
-            changeNote,
-            createdBy: req.userId,
-            submittedAt: new Date(),
-          },
-        ],
-        { session },
-      );
+      const newV = await ProposalVersion.create({
+        proposal: proposal._id,
+        versionNumber: nextVersionNumber,
+        kind: "submitted",
+        formData: parsedFormData,
+        documents: mergedDocuments, // Use merged array
+        changeNote,
+        createdBy: req.userId,
+        submittedAt: new Date(),
+      });
 
+      // Check if there is an "active" assignment for this proposal
       const activeAssignment = await ReviewAssignment.findOne({
         proposal: proposal._id,
         status: { $in: ["assigned", "accepted", "in_progress"] },
       })
         .select("_id status reviewer")
-        .session(session)
         .lean();
 
-      proposal.currentVersion = newV[0]._id;
+      // Update proposal pointers + status based
+      proposal.currentVersion = newV._id;
       proposal.versionCount = nextVersionNumber;
+
       proposal.status = activeAssignment
         ? "Under Review"
         : "Waiting to be assigned";
 
-      await proposal.save({ session });
+      await proposal.save();
 
-      await session.commitTransaction();
-      session.endSession();
-
+      // Notify assigned reviewer if proposal is still actively assigned
       if (activeAssignment) {
         await createNotification({
           title: "Updated Proposal Submitted",
@@ -792,13 +771,11 @@ class ResearcherController {
       return res.status(200).json({
         success: true,
         proposal,
-        version: newV[0],
+        version: newV,
         hasActiveAssignment: Boolean(activeAssignment),
         assignmentStatus: activeAssignment?.status || null,
       });
     } catch (err) {
-      await session.abortTransaction();
-      session.endSession();
       console.log("submitUpdatedVersion error:", err);
       return res.status(500).json({ success: false, message: err.message });
     }
