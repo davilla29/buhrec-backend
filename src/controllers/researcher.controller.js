@@ -448,6 +448,26 @@ class ResearcherController {
     }
   }
 
+  // Get all proposals for the authenticated researcher
+  static async getAllProposals(req, res) {
+    try {
+      // Find all proposals matching the logged-in user's ID
+      // Sorting by updatedAt descending ensures the most recently modified ones appear first
+      const proposals = await Proposal.find({ researcher: req.userId })
+        .sort({ updatedAt: -1 })
+        .lean();
+
+      return res.status(200).json({
+        success: true,
+        count: proposals.length,
+        proposals,
+      });
+    } catch (err) {
+      console.log("getAllProposals error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
   // Get all versions for a particular proposal
   static async listVersions(req, res) {
     try {

@@ -6,13 +6,17 @@ import ResearcherController  from "../controllers/researcher.controller.js";
 
 const router = express.Router();
 
+// To apply authentication and role middleware to all routes below
 router.use(verifyToken, isResearcher);
+
+// Get all proposals for the logged-in researcher
+router.get("/proposals", ResearcherController.getAllProposals);
 
 // Create proposal shell
 router.post("/create-proposal", ResearcherController.createProposal);
 
 // Save draft (version 0)
-router.put(
+router.patch(
   "/proposals/:proposalId/draft",
   uploadProposalDocs,
   ResearcherController.saveDraft,
