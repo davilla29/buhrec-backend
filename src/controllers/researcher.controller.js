@@ -181,24 +181,25 @@ class ResearcherController {
   //   }
   // }
 
+  // Save draft (version 0)
   static async saveDraft(req, res) {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-
     try {
       const { proposalId } = req.params;
       const { formData } = req.body;
 
+      // 1. Find proposal WITHOUT .session(session)
       const proposal = await Proposal.findOne({
         _id: proposalId,
         researcher: req.userId,
-      }).session(session);
+      });
 
-      if (!proposal)
+      if (!proposal) {
         return res
           .status(404)
           .json({ success: false, message: "Proposal not found" });
+      }
 
+      // 2. Lock check
       const lockedStatuses = ["Under Review", "Approved", "Rejected"];
       if (lockedStatuses.includes(proposal.status)) {
         return res.status(400).json({
@@ -207,16 +208,17 @@ class ResearcherController {
         });
       }
 
+      // 3. Find existing draft WITHOUT .session(session)
       const existingDraft = await ProposalVersion.findOne({
         proposal: proposal._id,
         versionNumber: 0,
-      }).session(session);
+      });
 
+      // 4. Handle Documents (Delete replaced ones, append new ones)
       let mergedDocuments = existingDraft ? [...existingDraft.documents] : [];
       const incomingFiles = req.files || {};
       const newFileTypes = Object.keys(incomingFiles);
 
-      // 1. DELETE logic for replaced files
       for (const type of newFileTypes) {
         const existingDocIndex = mergedDocuments.findIndex(
           (d) => d.type === type,
@@ -225,49 +227,50 @@ class ResearcherController {
         if (existingDocIndex !== -1) {
           const oldDoc = mergedDocuments[existingDocIndex];
           try {
-            await deleteFromCloudinary(oldDoc.publicId); // Delete from cloud
+            await deleteFromCloudinary(oldDoc.publicId);
           } catch (deleteErr) {
             console.error(
               `Failed to delete old ${type} from Cloudinary:`,
               deleteErr,
             );
           }
-          mergedDocuments.splice(existingDocIndex, 1); // Remove from DB array
+          mergedDocuments.splice(existingDocIndex, 1);
         }
       }
 
-      // 2. Upload new files
       const uploaded = await uploadFilesToStorage(incomingFiles, {
         proposalId: proposal._id.toString(),
         versionTag: "draft",
       });
 
-      // 3. Merge untouched old documents with newly uploaded ones
       mergedDocuments = [...mergedDocuments, ...uploaded];
 
+      // 5. Merge formData for PATCH behavior
       const parsedFormData =
-        typeof formData === "string" ? JSON.parse(formData) : formData;
+        typeof formData === "string" ? JSON.parse(formData) : formData || {};
+      const existingFormData = existingDraft?.formData || {};
 
+      const mergedFormData = {
+        ...existingFormData,
+        ...parsedFormData,
+      };
+
+      // 6. Update or create the draft WITHOUT session
       const draft = await ProposalVersion.findOneAndUpdate(
         { proposal: proposal._id, versionNumber: 0 },
         {
           proposal: proposal._id,
           versionNumber: 0,
           kind: "draft",
-          formData: parsedFormData,
+          formData: mergedFormData,
           documents: mergedDocuments,
           createdBy: req.userId,
         },
-        { new: true, upsert: true, session },
+        { new: true, upsert: true },
       );
-
-      await session.commitTransaction();
-      session.endSession();
 
       return res.status(200).json({ success: true, draft });
     } catch (err) {
-      await session.abortTransaction();
-      session.endSession();
       console.log("saveDraft error:", err);
       return res.status(500).json({ success: false, message: err.message });
     }
