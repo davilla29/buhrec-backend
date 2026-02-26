@@ -42,12 +42,39 @@ async function uploadFilesToStorage(
 }
 
 function validateDraftRequirements(draft) {
-  // Put your required fields here based on the UI
-  // Example:
-  const fd = draft?.formData || {};
-  if (!fd.projectName && !fd.title) return "Project name/title is required";
-  if (!fd.institution) return "Institution is required";
-  if (!draft?.documents?.length) return "Supporting documents are required";
+  if (!draft) return "Draft not found";
+
+  const fd = draft.formData || {};
+
+  if (!fd.projectName?.trim()) return "Project name is required";
+
+  if (!fd.researcherName?.trim()) return "Researcher name is required";
+
+  if (!fd.institution?.trim()) return "Institution is required";
+
+  if (!fd.college?.trim()) return "College/School is required";
+
+  if (!fd.department?.trim()) return "Department is required";
+
+  if (!fd.category) return "Category is required";
+
+  if (!fd.supervisor?.trim()) return "Supervisor is required";
+
+  if (!draft.documents?.length)
+    return "All required documents must be uploaded";
+
+  const hasApplicationLetter = draft.documents.some(
+    (d) => d.type === "applicationLetter",
+  );
+
+  const hasProposalDocument = draft.documents.some(
+    (d) => d.type === "proposalDocument",
+  );
+
+  if (!hasApplicationLetter) return "Application letter is required";
+
+  if (!hasProposalDocument) return "Proposal document is required";
+
   return null;
 }
 
