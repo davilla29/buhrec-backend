@@ -27,13 +27,13 @@ async function uploadFilesToStorage(
       });
 
       return {
+        type: f.fieldname,
         filename: f.originalname,
         url: result.secure_url,
         mimeType: f.mimetype,
         size: f.size,
         uploadedAt: new Date(),
-        // Optional extras:
-        // publicId: result.public_id,
+        publicId: result.public_id,
       };
     }),
   );

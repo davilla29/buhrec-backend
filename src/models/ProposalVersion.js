@@ -63,6 +63,7 @@
 // );
 
 // models/ProposalVersion.js
+import { publicDecrypt } from "crypto";
 import mongoose from "mongoose";
 
 const formDataSchema = new mongoose.Schema(
@@ -93,6 +94,7 @@ const documentSchema = new mongoose.Schema(
     },
     filename: { type: String, required: true },
     url: { type: String, required: true },
+    publicId: { type: String, required: true },
     mimeType: { type: String },
     size: { type: Number },
     uploadedAt: { type: Date, default: Date.now },
