@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { Proposal } from "../models/Proposal.js";
+import axios from "axios";
 import { Researcher } from "../models/Researcher.js";
 import { Administrator } from "../models/Administrator.js";
 import { ProposalVersion } from "../models/ProposalVersion.js";
@@ -277,6 +278,90 @@ class ResearcherController {
   }
 
   // Initiate payment (7000 fixed) AFTER requirements are met
+  // static async initPayment(req, res) {
+  //   try {
+  //     const { proposalId } = req.params;
+
+  //     const proposal = await Proposal.findOne({
+  //       _id: proposalId,
+  //       researcher: req.userId,
+  //     });
+
+  //     if (!proposal)
+  //       return res
+  //         .status(404)
+  //         .json({ success: false, message: "Proposal not found" });
+
+  //     if (proposal.payment?.status === "paid" || proposal.status === "Paid") {
+  //       return res
+  //         .status(400)
+  //         .json({ success: false, message: "Already paid" });
+  //     }
+
+  //     const draft = await ProposalVersion.findOne({
+  //       proposal: proposal._id,
+  //       versionNumber: 0,
+  //     });
+
+  //     if (!draft) {
+  //       return res
+  //         .status(400)
+  //         .json({ success: false, message: "Save a draft first" });
+  //     }
+
+  //     const requirementError = validateDraftRequirements(draft);
+  //     if (requirementError) {
+  //       return res
+  //         .status(400)
+  //         .json({ success: false, message: requirementError });
+  //     }
+
+  //     // mark awaiting payment
+  //     proposal.status = "Awaiting Payment";
+  //     proposal.payment = proposal.payment || {};
+  //     proposal.payment.status = "pending";
+  //     proposal.payment.txRef = `TX-${proposal.applicationId}-${Date.now()}`;
+
+  //     await proposal.save();
+
+  //     // Call Flutterwave initialize payment
+  //     // Return payment link to frontend (it opens it)
+  //     // You will implement flutterwave service using your secret key
+  //     const researcher = await Researcher.findById(req.userId).select(
+  //       "email fullName",
+  //     );
+  //     if (!researcher)
+  //       return res
+  //         .status(401)
+  //         .json({ success: false, message: "Unauthorized" });
+
+  //     const paymentLink = await req.flutterwave.init({
+  //       amount: 7000,
+  //       currency: "NGN",
+  //       tx_ref: proposal.payment.txRef,
+
+  //       customer: { email: researcher.email, name: researcher.fullName },
+  //       meta: {
+  //         proposalId: proposal._id.toString(),
+  //         applicationId: proposal.applicationId,
+  //       },
+  //       redirect_url: `${process.env.API_BASE_URL}/api/payments/flutterwave/callback`,
+  //     });
+
+  //     return res.status(200).json({
+  //       success: true,
+  //       amount: 7000,
+  //       currency: "NGN",
+  //       txRef: proposal.payment.txRef,
+  //       paymentLink,
+  //     });
+  //   } catch (err) {
+  //     console.log("initPayment error:", err);
+  //     return res.status(500).json({ success: false, message: err.message });
+  //   }
+  // }
+
+  // Initiate payment (7000 fixed) AFTER requirements are met
   static async initPayment(req, res) {
     try {
       const { proposalId } = req.params;
@@ -286,10 +371,11 @@ class ResearcherController {
         researcher: req.userId,
       });
 
-      if (!proposal)
+      if (!proposal) {
         return res
           .status(404)
           .json({ success: false, message: "Proposal not found" });
+      }
 
       if (proposal.payment?.status === "paid" || proposal.status === "Paid") {
         return res
@@ -323,40 +409,63 @@ class ResearcherController {
 
       await proposal.save();
 
-      // Call Flutterwave initialize payment
-      // Return payment link to frontend (it opens it)
-      // You will implement flutterwave service using your secret key
       const researcher = await Researcher.findById(req.userId).select(
         "email fullName",
       );
-      if (!researcher)
+
+      if (!researcher) {
         return res
           .status(401)
           .json({ success: false, message: "Unauthorized" });
+      }
 
-      const paymentLink = await req.flutterwave.init({
+      // Initialize payment directly via Flutterwave API
+      const flutterwavePayload = {
+        tx_ref: proposal.payment.txRef,
         amount: 7000,
         currency: "NGN",
-        tx_ref: proposal.payment.txRef,
-
-        customer: { email: researcher.email, name: researcher.fullName },
+        redirect_url: `${process.env.API_BASE_URL}/api/payments/flutterwave/callback`, // Make sure this is in your .env
+        customer: {
+          email: researcher.email,
+          name: researcher.fullName,
+        },
+        customizations: {
+          title: "BUHREC Proposal Submission",
+          description: `Payment for proposal: ${proposal.title}`,
+        },
         meta: {
           proposalId: proposal._id.toString(),
           applicationId: proposal.applicationId,
         },
-        redirect_url: `${process.env.API_BASE_URL}/api/payments/flutterwave/callback`,
-      });
+      };
+
+      const response = await axios.post(
+        "https://api.flutterwave.com/v3/payments",
+        flutterwavePayload,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.FLUTTERWAVE_SECRET_KEY}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      // Flutterwave returns the payment link in response.data.data.link
+      const paymentLink = response.data.data.link;
 
       return res.status(200).json({
         success: true,
         amount: 7000,
         currency: "NGN",
         txRef: proposal.payment.txRef,
-        paymentLink,
+        paymentLink, // The frontend will use this to redirect the user
       });
     } catch (err) {
-      console.log("initPayment error:", err);
-      return res.status(500).json({ success: false, message: err.message });
+      // Axios errors are nested, so we log err.response.data to see what Flutterwave complained about
+      console.log("initPayment error:", err?.response?.data || err.message);
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to initialize payment" });
     }
   }
 
