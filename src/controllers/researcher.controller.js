@@ -201,12 +201,10 @@ class ResearcherController {
 
       const lockedStatuses = ["Under Review", "Approved", "Rejected"];
       if (lockedStatuses.includes(proposal.status)) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "Proposal is locked and cannot be edited",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "Proposal is locked and cannot be edited",
+        });
       }
 
       const existingDraft = await ProposalVersion.findOne({
@@ -549,6 +547,115 @@ class ResearcherController {
   }
 
   // Submit v2+ when Awaiting Modifications
+  // static async submitUpdatedVersion(req, res) {
+  //   const session = await mongoose.startSession();
+  //   session.startTransaction();
+
+  //   try {
+  //     const { proposalId } = req.params;
+  //     const { formData, changeNote } = req.body;
+
+  //     const proposal = await Proposal.findOne({
+  //       _id: proposalId,
+  //       researcher: req.userId,
+  //     }).session(session);
+
+  //     if (!proposal)
+  //       return res
+  //         .status(404)
+  //         .json({ success: false, message: "Proposal not found" });
+
+  //     if (proposal.status !== "Awaiting Modifications") {
+  //       return res.status(400).json({
+  //         success: false,
+  //         message:
+  //           "You can only submit updates when modifications are requested",
+  //       });
+  //     }
+
+  //     if (!changeNote || changeNote.trim().length < 3) {
+  //       return res.status(400).json({
+  //         success: false,
+  //         message: "changeNote is required (briefly explain what you changed)",
+  //       });
+  //     }
+
+  //     //   const uploaded = await uploadFilesToStorage(req.files || []);
+  //     const uploaded = await uploadFilesToStorage(req.files || [], {
+  //       proposalId: proposal._id.toString(),
+  //       versionTag: `v${proposal.versionCount + 1}`,
+  //     });
+
+  //     const parsedFormData =
+  //       typeof formData === "string" ? JSON.parse(formData) : formData;
+
+  //     const nextVersionNumber = proposal.versionCount + 1;
+
+  //     const newV = await ProposalVersion.create(
+  //       [
+  //         {
+  //           proposal: proposal._id,
+  //           versionNumber: nextVersionNumber,
+  //           kind: "submitted",
+  //           formData: parsedFormData,
+  //           documents: uploaded,
+  //           changeNote,
+  //           createdBy: req.userId,
+  //           submittedAt: new Date(),
+  //         },
+  //       ],
+  //       { session },
+  //     );
+
+  //     // ✅ Check if there is an "active" assignment for this proposal
+  //     // Active means a reviewer is still responsible for it.
+  //     const activeAssignment = await ReviewAssignment.findOne({
+  //       proposal: proposal._id,
+  //       status: { $in: ["assigned", "accepted", "in_progress"] },
+  //     })
+  //       .select("_id status reviewer")
+  //       .session(session)
+  //       .lean();
+
+  //     // ✅ Update proposal pointers + status based
+  //     proposal.currentVersion = newV[0]._id;
+  //     proposal.versionCount = nextVersionNumber;
+
+  //     proposal.status = activeAssignment
+  //       ? "Under Review"
+  //       : "Waiting to be assigned";
+
+  //     await proposal.save({ session });
+
+  //     await session.commitTransaction();
+  //     session.endSession();
+
+  //     // Notify assigned reviewer if proposal is still actively assigned
+  //     if (activeAssignment) {
+  //       await createNotification({
+  //         title: "Updated Proposal Submitted",
+  //         message: `The researcher has submitted an updated version of the proposal "${proposal.title}". Please review the changes.`,
+  //         proposalId: proposal._id,
+  //         senderId: req.userId,
+  //         receiverId: activeAssignment.reviewer,
+  //       });
+  //     }
+
+  //     return res.status(200).json({
+  //       success: true,
+  //       proposal,
+  //       version: newV[0],
+  //       hasActiveAssignment: Boolean(activeAssignment),
+  //       assignmentStatus: activeAssignment?.status || null,
+  //     });
+  //   } catch (err) {
+  //     await session.abortTransaction();
+  //     session.endSession();
+  //     console.log("submitUpdatedVersion error:", err);
+  //     return res.status(500).json({ success: false, message: err.message });
+  //   }
+  // }
+
   static async submitUpdatedVersion(req, res) {
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -582,15 +689,36 @@ class ResearcherController {
         });
       }
 
-      //   const uploaded = await uploadFilesToStorage(req.files || []);
-      const uploaded = await uploadFilesToStorage(req.files || [], {
+      // Grab existing docs from previous version to carry over untouched files
+      const previousVersion = await ProposalVersion.findOne({
+        proposal: proposal._id,
+        versionNumber: proposal.versionCount,
+      }).session(session);
+
+      let mergedDocuments = previousVersion
+        ? [...previousVersion.documents]
+        : [];
+      const incomingFiles = req.files || {};
+      const newFileTypes = Object.keys(incomingFiles);
+
+      for (const type of newFileTypes) {
+        const existingDocIndex = mergedDocuments.findIndex(
+          (d) => d.type === type,
+        );
+        if (existingDocIndex !== -1) {
+          mergedDocuments.splice(existingDocIndex, 1);
+        }
+      }
+
+      const uploaded = await uploadFilesToStorage(incomingFiles, {
         proposalId: proposal._id.toString(),
         versionTag: `v${proposal.versionCount + 1}`,
       });
 
+      mergedDocuments = [...mergedDocuments, ...uploaded];
+
       const parsedFormData =
         typeof formData === "string" ? JSON.parse(formData) : formData;
-
       const nextVersionNumber = proposal.versionCount + 1;
 
       const newV = await ProposalVersion.create(
@@ -600,7 +728,7 @@ class ResearcherController {
             versionNumber: nextVersionNumber,
             kind: "submitted",
             formData: parsedFormData,
-            documents: uploaded,
+            documents: mergedDocuments, // Use merged array
             changeNote,
             createdBy: req.userId,
             submittedAt: new Date(),
@@ -609,8 +737,6 @@ class ResearcherController {
         { session },
       );
 
-      // ✅ Check if there is an "active" assignment for this proposal
-      // Active means a reviewer is still responsible for it.
       const activeAssignment = await ReviewAssignment.findOne({
         proposal: proposal._id,
         status: { $in: ["assigned", "accepted", "in_progress"] },
@@ -619,10 +745,8 @@ class ResearcherController {
         .session(session)
         .lean();
 
-      // ✅ Update proposal pointers + status based
       proposal.currentVersion = newV[0]._id;
       proposal.versionCount = nextVersionNumber;
-
       proposal.status = activeAssignment
         ? "Under Review"
         : "Waiting to be assigned";
@@ -632,7 +756,6 @@ class ResearcherController {
       await session.commitTransaction();
       session.endSession();
 
-      // Notify assigned reviewer if proposal is still actively assigned
       if (activeAssignment) {
         await createNotification({
           title: "Updated Proposal Submitted",
