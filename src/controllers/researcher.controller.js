@@ -6,37 +6,38 @@ import { ProposalVersion } from "../models/ProposalVersion.js";
 import { ReviewComment } from "../models/ReviewComment.js";
 import { ReviewAssignment } from "../models/ReviewAssignment.js";
 import { generateUniqueApplicationId } from "../utils/generateApplicationId.js";
-import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
+import {
+  uploadBufferToCloudinary,
+  deleteFromCloudinary,
+} from "../utils/cloudinaryUpload.js";
 import createNotification from "./notification.controller.js";
 
 async function uploadFilesToStorage(
-  files = [],
+  filesObj = {},
   { proposalId, versionTag } = {},
 ) {
-  if (!files.length) return [];
+  const uploads = [];
 
-  const uploads = await Promise.all(
-    files.map(async (f) => {
-      // Cloudinary decides resource type automatically if you pass "auto"
-      // This is important for PDF/DOCX etc.
-      const result = await uploadBufferToCloudinary(f.buffer, {
-        folder: `buhrec/proposals/${proposalId}`,
-        resource_type: "auto",
-        public_id: `${Date.now()}-${f.originalname}`.replace(/\s+/g, "_"),
-        tags: ["proposal", versionTag].filter(Boolean),
-      });
+  for (const [fieldname, fileArray] of Object.entries(filesObj)) {
+    const f = fileArray[0]; // Extract the single file from the array
 
-      return {
-        type: f.fieldname,
-        filename: f.originalname,
-        url: result.secure_url,
-        mimeType: f.mimetype,
-        size: f.size,
-        uploadedAt: new Date(),
-        publicId: result.public_id,
-      };
-    }),
-  );
+    const result = await uploadBufferToCloudinary(f.buffer, {
+      folder: `buhrec/proposals/${proposalId}`,
+      resource_type: "auto",
+      public_id: `${Date.now()}-${f.originalname}`.replace(/\s+/g, "_"),
+      tags: ["proposal", versionTag].filter(Boolean),
+    });
+
+    uploads.push({
+      type: fieldname, // Map directly to "applicationLetter" or "proposalDocument"
+      filename: f.originalname,
+      url: result.secure_url,
+      mimeType: f.mimetype,
+      size: f.size,
+      uploadedAt: new Date(),
+      publicId: result.public_id,
+    });
+  }
 
   return uploads;
 }
@@ -105,13 +106,88 @@ class ResearcherController {
   }
 
   // Save draft (version 0)
+  // static async saveDraft(req, res) {
+  //   const session = await mongoose.startSession();
+  //   session.startTransaction();
+
+  //   try {
+  //     const { proposalId } = req.params;
+  //     const { formData } = req.body; // formData should be JSON from frontend
+
+  //     const proposal = await Proposal.findOne({
+  //       _id: proposalId,
+  //       researcher: req.userId,
+  //     }).session(session);
+
+  //     if (!proposal)
+  //       return res
+  //         .status(404)
+  //         .json({ success: false, message: "Proposal not found" });
+
+  //     /*
+  //     lock editing when truly locked
+  //     Editing is allowed only when it is still in draft or awaiting payment
+  //     */
+  //     const lockedStatuses = ["Under Review", "Approved", "Rejected"];
+  //     if (lockedStatuses.includes(proposal.status)) {
+  //       return res.status(400).json({
+  //         success: false,
+  //         message: "Proposal is locked and cannot be edited",
+  //       });
+  //     }
+  //     const uploaded = await uploadFilesToStorage(req.files || [], {
+  //       proposalId: proposal._id.toString(),
+  //       versionTag: "draft",
+  //     });
+
+  //     const parsedFormData =
+  //       typeof formData === "string" ? JSON.parse(formData) : formData;
+
+  //     const existingDraft = await ProposalVersion.findOne({
+  //       proposal: proposal._id,
+  //       versionNumber: 0,
+  //     }).session(session);
+
+  //     const mergedDocuments =
+  //       uploaded.length > 0 ? uploaded : existingDraft?.documents || [];
+
+  //     const draft = await ProposalVersion.findOneAndUpdate(
+  //       { proposal: proposal._id, versionNumber: 0 },
+  //       {
+  //         proposal: proposal._id,
+  //         versionNumber: 0,
+  //         kind: "draft",
+  //         formData: parsedFormData,
+  //         documents: mergedDocuments,
+
+  //         createdBy: req.userId,
+  //       },
+  //       { new: true, upsert: true, session },
+  //     );
+
+  //     // Once draft is meaningful, you can set Awaiting Payment (optional)
+  //     // proposal.status = "Awaiting Payment";
+  //     await proposal.save({ session });
+
+  //     await session.commitTransaction();
+  //     session.endSession();
+
+  //     return res.status(200).json({ success: true, draft });
+  //   } catch (err) {
+  //     await session.abortTransaction();
+  //     session.endSession();
+  //     console.log("saveDraft error:", err);
+  //     return res.status(500).json({ success: false, message: err.message });
+  //   }
+  // }
+
   static async saveDraft(req, res) {
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
       const { proposalId } = req.params;
-      const { formData } = req.body; // formData should be JSON from frontend
+      const { formData } = req.body;
 
       const proposal = await Proposal.findOne({
         _id: proposalId,
@@ -123,32 +199,56 @@ class ResearcherController {
           .status(404)
           .json({ success: false, message: "Proposal not found" });
 
-      /* 
-      lock editing when truly locked
-      Editing is allowed only when it is still in draft or awaiting payment
-      */
       const lockedStatuses = ["Under Review", "Approved", "Rejected"];
       if (lockedStatuses.includes(proposal.status)) {
-        return res.status(400).json({
-          success: false,
-          message: "Proposal is locked and cannot be edited",
-        });
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: "Proposal is locked and cannot be edited",
+          });
       }
-      const uploaded = await uploadFilesToStorage(req.files || [], {
-        proposalId: proposal._id.toString(),
-        versionTag: "draft",
-      });
-
-      const parsedFormData =
-        typeof formData === "string" ? JSON.parse(formData) : formData;
 
       const existingDraft = await ProposalVersion.findOne({
         proposal: proposal._id,
         versionNumber: 0,
       }).session(session);
 
-      const mergedDocuments =
-        uploaded.length > 0 ? uploaded : existingDraft?.documents || [];
+      let mergedDocuments = existingDraft ? [...existingDraft.documents] : [];
+      const incomingFiles = req.files || {};
+      const newFileTypes = Object.keys(incomingFiles);
+
+      // 1. DELETE logic for replaced files
+      for (const type of newFileTypes) {
+        const existingDocIndex = mergedDocuments.findIndex(
+          (d) => d.type === type,
+        );
+
+        if (existingDocIndex !== -1) {
+          const oldDoc = mergedDocuments[existingDocIndex];
+          try {
+            await deleteFromCloudinary(oldDoc.publicId); // Delete from cloud
+          } catch (deleteErr) {
+            console.error(
+              `Failed to delete old ${type} from Cloudinary:`,
+              deleteErr,
+            );
+          }
+          mergedDocuments.splice(existingDocIndex, 1); // Remove from DB array
+        }
+      }
+
+      // 2. Upload new files
+      const uploaded = await uploadFilesToStorage(incomingFiles, {
+        proposalId: proposal._id.toString(),
+        versionTag: "draft",
+      });
+
+      // 3. Merge untouched old documents with newly uploaded ones
+      mergedDocuments = [...mergedDocuments, ...uploaded];
+
+      const parsedFormData =
+        typeof formData === "string" ? JSON.parse(formData) : formData;
 
       const draft = await ProposalVersion.findOneAndUpdate(
         { proposal: proposal._id, versionNumber: 0 },
@@ -158,15 +258,10 @@ class ResearcherController {
           kind: "draft",
           formData: parsedFormData,
           documents: mergedDocuments,
-
           createdBy: req.userId,
         },
         { new: true, upsert: true, session },
       );
-
-      // Once draft is meaningful, you can set Awaiting Payment (optional)
-      // proposal.status = "Awaiting Payment";
-      await proposal.save({ session });
 
       await session.commitTransaction();
       session.endSession();
