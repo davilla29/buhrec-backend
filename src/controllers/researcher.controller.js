@@ -520,17 +520,20 @@ class ResearcherController {
           .status(404)
           .json({ success: false, message: "Proposal not found" });
 
-      if (proposal.payment?.status !== "paid" || proposal.status !== "Paid") {
-        return res.status(400).json({
-          success: false,
-          message: "Payment required before submission",
-        });
-      }
-
       if (proposal.versionCount > 0) {
         return res.status(400).json({
           success: false,
           message: "Already submitted. Use version update flow if requested.",
+        });
+      }
+
+      console.log("DB STATUS:", proposal.status);
+      console.log("DB PAYMENT STATUS:", proposal.payment?.status);
+
+      if (proposal.payment?.status !== "paid" || proposal.status !== "Paid") {
+        return res.status(400).json({
+          success: false,
+          message: "Payment required before submission",
         });
       }
 
