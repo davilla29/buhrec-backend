@@ -460,7 +460,7 @@ class ResearcherController {
         tx_ref: proposal.payment.txRef,
         amount: 7000,
         currency: "NGN",
-        redirect_url: `${process.env.API_BASE_URL}/api/payments/flutterwave/callback`, // Make sure this is in your .env
+        redirect_url: `${process.env.BACKEND_URL_DEV}/api/payments/flutterwave/callback`, // Make sure this is in your .env
         customer: {
           email: researcher.email,
           name: researcher.fullName,
