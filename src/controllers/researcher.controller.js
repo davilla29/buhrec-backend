@@ -1,53 +1,92 @@
 import mongoose from "mongoose";
 import { Proposal } from "../models/Proposal.js";
+import axios from "axios";
 import { Researcher } from "../models/Researcher.js";
 import { Administrator } from "../models/Administrator.js";
 import { ProposalVersion } from "../models/ProposalVersion.js";
 import { ReviewComment } from "../models/ReviewComment.js";
 import { ReviewAssignment } from "../models/ReviewAssignment.js";
 import { generateUniqueApplicationId } from "../utils/generateApplicationId.js";
-import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
+import {
+  uploadBufferToCloudinary,
+  deleteFromCloudinary,
+} from "../utils/cloudinaryUpload.js";
 import createNotification from "./notification.controller.js";
 
 async function uploadFilesToStorage(
-  files = [],
+  filesObj = {},
   { proposalId, versionTag } = {},
 ) {
-  if (!files.length) return [];
+  const uploads = [];
 
-  const uploads = await Promise.all(
-    files.map(async (f) => {
-      // Cloudinary decides resource type automatically if you pass "auto"
-      // This is important for PDF/DOCX etc.
-      const result = await uploadBufferToCloudinary(f.buffer, {
-        folder: `buhrec/proposals/${proposalId}`,
-        resource_type: "auto",
-        public_id: `${Date.now()}-${f.originalname}`.replace(/\s+/g, "_"),
-        tags: ["proposal", versionTag].filter(Boolean),
-      });
+  for (const [fieldname, fileArray] of Object.entries(filesObj)) {
+    const f = fileArray[0]; // Extract the single file from the array
 
-      return {
-        filename: f.originalname,
-        url: result.secure_url,
-        mimeType: f.mimetype,
-        size: f.size,
-        uploadedAt: new Date(),
-        // Optional extras:
-        // publicId: result.public_id,
-      };
-    }),
-  );
+    const result = await uploadBufferToCloudinary(f.buffer, {
+      folder: `buhrec/proposals/${proposalId}`,
+      resource_type: "auto",
+      public_id: `${Date.now()}-${f.originalname}`.replace(/\s+/g, "_"),
+      tags: ["proposal", versionTag].filter(Boolean),
+    });
+
+    uploads.push({
+      type: fieldname, // Map directly to "applicationLetter" or "proposalDocument"
+      filename: f.originalname,
+      url: result.secure_url,
+      mimeType: f.mimetype,
+      size: f.size,
+      uploadedAt: new Date(),
+      publicId: result.public_id,
+    });
+  }
 
   return uploads;
 }
 
 function validateDraftRequirements(draft) {
-  // Put your required fields here based on the UI
-  // Example:
-  const fd = draft?.formData || {};
-  if (!fd.projectName && !fd.title) return "Project name/title is required";
-  if (!fd.institution) return "Institution is required";
-  if (!draft?.documents?.length) return "Supporting documents are required";
+  if (!draft) return "Draft not found";
+
+  const fd = draft.formData || {};
+
+  if (!fd.projectName?.trim()) return "Project name is required";
+
+  // Check that the array exists, is not empty, and the first item isn't blank
+  if (
+    !fd.researchers ||
+    !Array.isArray(fd.researchers) ||
+    fd.researchers.length === 0 ||
+    !fd.researchers[0]?.trim()
+  ) {
+    return "At least one researcher name is required";
+  }
+
+  if (!fd.institution?.trim()) return "Institution is required";
+
+  if (!fd.college?.trim()) return "College/School is required";
+
+  if (!fd.department?.trim()) return "Department is required";
+
+  if (!fd.category) return "Category is required";
+
+  if (!fd.supervisor?.trim()) return "Supervisor is required";
+
+  if (!fd.supervisorEmail?.trim()) return "Supervisor email is required";
+
+  if (!draft.documents?.length)
+    return "All required documents must be uploaded";
+
+  const hasApplicationLetter = draft.documents.some(
+    (d) => d.type === "applicationLetter",
+  );
+
+  const hasProposalDocument = draft.documents.some(
+    (d) => d.type === "proposalDocument",
+  );
+
+  if (!hasApplicationLetter) return "Application letter is required";
+
+  if (!hasProposalDocument) return "Proposal document is required";
+
   return null;
 }
 
@@ -70,7 +109,20 @@ class ResearcherController {
         status: "Draft",
       });
 
-      return res.status(201).json({ success: true, proposal });
+      // IMMEDIATELY create the initial draft (v0)
+      // and pre-fill the projectName so they match perfectly!
+      const draft = await ProposalVersion.create({
+        proposal: proposal._id,
+        versionNumber: 0,
+        kind: "draft",
+        formData: {
+          projectName: title,
+          researchers: [],
+        },
+        createdBy: req.userId,
+      });
+
+      return res.status(201).json({ success: true, proposal, draft });
     } catch (err) {
       console.log("createProposal error:", err);
       return res.status(500).json({ success: false, message: err.message });
@@ -78,25 +130,100 @@ class ResearcherController {
   }
 
   // Save draft (version 0)
-  static async saveDraft(req, res) {
-    const session = await mongoose.startSession();
-    session.startTransaction();
+  // static async saveDraft(req, res) {
+  //   const session = await mongoose.startSession();
+  //   session.startTransaction();
 
+  //   try {
+  //     const { proposalId } = req.params;
+  //     const { formData } = req.body; // formData should be JSON from frontend
+
+  //     const proposal = await Proposal.findOne({
+  //       _id: proposalId,
+  //       researcher: req.userId,
+  //     }).session(session);
+
+  //     if (!proposal)
+  //       return res
+  //         .status(404)
+  //         .json({ success: false, message: "Proposal not found" });
+
+  //     /*
+  //     lock editing when truly locked
+  //     Editing is allowed only when it is still in draft or awaiting payment
+  //     */
+  //     const lockedStatuses = ["Under Review", "Approved", "Rejected"];
+  //     if (lockedStatuses.includes(proposal.status)) {
+  //       return res.status(400).json({
+  //         success: false,
+  //         message: "Proposal is locked and cannot be edited",
+  //       });
+  //     }
+  //     const uploaded = await uploadFilesToStorage(req.files || [], {
+  //       proposalId: proposal._id.toString(),
+  //       versionTag: "draft",
+  //     });
+
+  //     const parsedFormData =
+  //       typeof formData === "string" ? JSON.parse(formData) : formData;
+
+  //     const existingDraft = await ProposalVersion.findOne({
+  //       proposal: proposal._id,
+  //       versionNumber: 0,
+  //     }).session(session);
+
+  //     const mergedDocuments =
+  //       uploaded.length > 0 ? uploaded : existingDraft?.documents || [];
+
+  //     const draft = await ProposalVersion.findOneAndUpdate(
+  //       { proposal: proposal._id, versionNumber: 0 },
+  //       {
+  //         proposal: proposal._id,
+  //         versionNumber: 0,
+  //         kind: "draft",
+  //         formData: parsedFormData,
+  //         documents: mergedDocuments,
+
+  //         createdBy: req.userId,
+  //       },
+  //       { new: true, upsert: true, session },
+  //     );
+
+  //     // Once draft is meaningful, you can set Awaiting Payment (optional)
+  //     // proposal.status = "Awaiting Payment";
+  //     await proposal.save({ session });
+
+  //     await session.commitTransaction();
+  //     session.endSession();
+
+  //     return res.status(200).json({ success: true, draft });
+  //   } catch (err) {
+  //     await session.abortTransaction();
+  //     session.endSession();
+  //     console.log("saveDraft error:", err);
+  //     return res.status(500).json({ success: false, message: err.message });
+  //   }
+  // }
+
+  // Save draft (version 0)
+  static async saveDraft(req, res) {
     try {
       const { proposalId } = req.params;
-      const { formData } = req.body; // formData should be JSON from frontend
+      const { formData } = req.body;
 
+      // 1. Find proposal WITHOUT .session(session)
       const proposal = await Proposal.findOne({
         _id: proposalId,
         researcher: req.userId,
-      }).session(session);
+      });
 
-      if (!proposal)
+      if (!proposal) {
         return res
           .status(404)
           .json({ success: false, message: "Proposal not found" });
+      }
 
-      // lock editing when truly locked
+      // 2. Lock check
       const lockedStatuses = ["Under Review", "Approved", "Rejected"];
       if (lockedStatuses.includes(proposal.status)) {
         return res.status(400).json({
@@ -104,51 +231,169 @@ class ResearcherController {
           message: "Proposal is locked and cannot be edited",
         });
       }
-      const uploaded = await uploadFilesToStorage(req.files || [], {
+
+      // 3. Find existing draft WITHOUT .session(session)
+      const existingDraft = await ProposalVersion.findOne({
+        proposal: proposal._id,
+        versionNumber: 0,
+      });
+
+      // 4. Handle Documents (Delete replaced ones, append new ones)
+      let mergedDocuments = existingDraft ? [...existingDraft.documents] : [];
+      const incomingFiles = req.files || {};
+      const newFileTypes = Object.keys(incomingFiles);
+
+      for (const type of newFileTypes) {
+        const existingDocIndex = mergedDocuments.findIndex(
+          (d) => d.type === type,
+        );
+
+        if (existingDocIndex !== -1) {
+          const oldDoc = mergedDocuments[existingDocIndex];
+          try {
+            await deleteFromCloudinary(oldDoc.publicId);
+          } catch (deleteErr) {
+            console.error(
+              `Failed to delete old ${type} from Cloudinary:`,
+              deleteErr,
+            );
+          }
+          mergedDocuments.splice(existingDocIndex, 1);
+        }
+      }
+
+      const uploaded = await uploadFilesToStorage(incomingFiles, {
         proposalId: proposal._id.toString(),
         versionTag: "draft",
       });
 
+      mergedDocuments = [...mergedDocuments, ...uploaded];
+
+      // 5. Merge formData for PATCH behavior
       const parsedFormData =
-        typeof formData === "string" ? JSON.parse(formData) : formData;
+        typeof formData === "string" ? JSON.parse(formData) : formData || {};
 
-      const existingDraft = await ProposalVersion.findOne({
-        proposal: proposal._id,
-        versionNumber: 0,
-      }).session(session);
+      // Auto Sync ogic
+      if (
+        parsedFormData.projectName &&
+        parsedFormData.projectName !== proposal.title
+      ) {
+        proposal.title = parsedFormData.projectName;
+        await proposal.save(); // Save the updated shell title
+      }
+      const existingFormData = existingDraft?.formData
+        ? existingDraft.formData.toObject()
+        : {};
 
-      const mergedDocuments =
-        uploaded.length > 0 ? uploaded : existingDraft?.documents || [];
+      const mergedFormData = {
+        ...existingFormData,
+        ...parsedFormData,
+      };
 
+      // 6. Update or create the draft WITHOUT session
       const draft = await ProposalVersion.findOneAndUpdate(
         { proposal: proposal._id, versionNumber: 0 },
         {
           proposal: proposal._id,
           versionNumber: 0,
           kind: "draft",
-          formData: parsedFormData,
+          formData: mergedFormData,
           documents: mergedDocuments,
-
           createdBy: req.userId,
         },
-        { new: true, upsert: true, session },
+        { new: true, upsert: true },
       );
-
-      // Once draft is meaningful, you can set Awaiting Payment (optional)
-      // proposal.status = "Awaiting Payment";
-      await proposal.save({ session });
-
-      await session.commitTransaction();
-      session.endSession();
 
       return res.status(200).json({ success: true, draft });
     } catch (err) {
-      await session.abortTransaction();
-      session.endSession();
       console.log("saveDraft error:", err);
       return res.status(500).json({ success: false, message: err.message });
     }
   }
+
+  // Initiate payment (7000 fixed) AFTER requirements are met
+  // static async initPayment(req, res) {
+  //   try {
+  //     const { proposalId } = req.params;
+
+  //     const proposal = await Proposal.findOne({
+  //       _id: proposalId,
+  //       researcher: req.userId,
+  //     });
+
+  //     if (!proposal)
+  //       return res
+  //         .status(404)
+  //         .json({ success: false, message: "Proposal not found" });
+
+  //     if (proposal.payment?.status === "paid" || proposal.status === "Paid") {
+  //       return res
+  //         .status(400)
+  //         .json({ success: false, message: "Already paid" });
+  //     }
+
+  //     const draft = await ProposalVersion.findOne({
+  //       proposal: proposal._id,
+  //       versionNumber: 0,
+  //     });
+
+  //     if (!draft) {
+  //       return res
+  //         .status(400)
+  //         .json({ success: false, message: "Save a draft first" });
+  //     }
+
+  //     const requirementError = validateDraftRequirements(draft);
+  //     if (requirementError) {
+  //       return res
+  //         .status(400)
+  //         .json({ success: false, message: requirementError });
+  //     }
+
+  //     // mark awaiting payment
+  //     proposal.status = "Awaiting Payment";
+  //     proposal.payment = proposal.payment || {};
+  //     proposal.payment.status = "pending";
+  //     proposal.payment.txRef = `TX-${proposal.applicationId}-${Date.now()}`;
+
+  //     await proposal.save();
+
+  //     // Call Flutterwave initialize payment
+  //     // Return payment link to frontend (it opens it)
+  //     // You will implement flutterwave service using your secret key
+  //     const researcher = await Researcher.findById(req.userId).select(
+  //       "email fullName",
+  //     );
+  //     if (!researcher)
+  //       return res
+  //         .status(401)
+  //         .json({ success: false, message: "Unauthorized" });
+
+  //     const paymentLink = await req.flutterwave.init({
+  //       amount: 7000,
+  //       currency: "NGN",
+  //       tx_ref: proposal.payment.txRef,
+
+  //       customer: { email: researcher.email, name: researcher.fullName },
+  //       meta: {
+  //         proposalId: proposal._id.toString(),
+  //         applicationId: proposal.applicationId,
+  //       },
+  //       redirect_url: `${process.env.API_BASE_URL}/api/payments/flutterwave/callback`,
+  //     });
+
+  //     return res.status(200).json({
+  //       success: true,
+  //       amount: 7000,
+  //       currency: "NGN",
+  //       txRef: proposal.payment.txRef,
+  //       paymentLink,
+  //     });
+  //   } catch (err) {
+  //     console.log("initPayment error:", err);
+  //     return res.status(500).json({ success: false, message: err.message });
+  //   }
+  // }
 
   // Initiate payment (7000 fixed) AFTER requirements are met
   static async initPayment(req, res) {
@@ -160,10 +405,11 @@ class ResearcherController {
         researcher: req.userId,
       });
 
-      if (!proposal)
+      if (!proposal) {
         return res
           .status(404)
           .json({ success: false, message: "Proposal not found" });
+      }
 
       if (proposal.payment?.status === "paid" || proposal.status === "Paid") {
         return res
@@ -182,6 +428,8 @@ class ResearcherController {
           .json({ success: false, message: "Save a draft first" });
       }
 
+      console.log(draft);
+
       const requirementError = validateDraftRequirements(draft);
       if (requirementError) {
         return res
@@ -195,60 +443,77 @@ class ResearcherController {
       proposal.payment.status = "pending";
       proposal.payment.txRef = `TX-${proposal.applicationId}-${Date.now()}`;
 
-      // txRef you can track back to proposal reliably
-      proposal.payment.txRef = `TX-${proposal.applicationId}-${Date.now()}`;
-
       await proposal.save();
 
-      // Call Flutterwave initialize payment
-      // Return payment link to frontend (it opens it)
-      // You will implement flutterwave service using your secret key
       const researcher = await Researcher.findById(req.userId).select(
         "email fullName",
       );
-      if (!researcher)
+
+      if (!researcher) {
         return res
           .status(401)
           .json({ success: false, message: "Unauthorized" });
+      }
 
-      const paymentLink = await req.flutterwave.init({
+      // Initialize payment directly via Flutterwave API
+      const flutterwavePayload = {
+        tx_ref: proposal.payment.txRef,
         amount: 7000,
         currency: "NGN",
-        tx_ref: proposal.payment.txRef,
-
-        customer: { email: researcher.email, name: researcher.fullName },
+        redirect_url: `${process.env.API_BASE_URL}/api/payments/flutterwave/callback`, // Make sure this is in your .env
+        customer: {
+          email: researcher.email,
+          name: researcher.fullName,
+        },
+        customizations: {
+          title: "BUHREC Proposal Submission",
+          description: `Payment for proposal: ${proposal.title}`,
+        },
         meta: {
           proposalId: proposal._id.toString(),
           applicationId: proposal.applicationId,
         },
-        redirect_url: `${process.env.API_BASE_URL}/api/payments/flutterwave/callback`,
-      });
+      };
+
+      const response = await axios.post(
+        "https://api.flutterwave.com/v3/payments",
+        flutterwavePayload,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.FLUTTERWAVE_SECRET_KEY}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      // Flutterwave returns the payment link in response.data.data.link
+      const paymentLink = response.data.data.link;
 
       return res.status(200).json({
         success: true,
         amount: 7000,
         currency: "NGN",
         txRef: proposal.payment.txRef,
-        paymentLink,
+        paymentLink, // The frontend will use this to redirect the user
       });
     } catch (err) {
-      console.log("initPayment error:", err);
-      return res.status(500).json({ success: false, message: err.message });
+      // Axios errors are nested, so we log err.response.data to see what Flutterwave complained about
+      console.log("initPayment error:", err?.response?.data || err.message);
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to initialize payment" });
     }
   }
 
   // Submit initial version (v1) after payment success
   static async submitInitial(req, res) {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-
     try {
       const { proposalId } = req.params;
 
       const proposal = await Proposal.findOne({
         _id: proposalId,
         researcher: req.userId,
-      }).session(session);
+      });
 
       if (!proposal)
         return res
@@ -272,7 +537,7 @@ class ResearcherController {
       const draft = await ProposalVersion.findOne({
         proposal: proposal._id,
         versionNumber: 0,
-      }).session(session);
+      });
 
       if (!draft)
         return res
@@ -280,31 +545,23 @@ class ResearcherController {
           .json({ success: false, message: "Draft not found" });
 
       // create version 1 snapshot from draft
-      const v1 = await ProposalVersion.create(
-        [
-          {
-            proposal: proposal._id,
-            versionNumber: 1,
-            kind: "submitted",
-            formData: draft.formData,
-            documents: draft.documents,
-            changeNote: "Initial submission",
-            createdBy: req.userId,
-            submittedAt: new Date(),
-          },
-        ],
-        { session },
-      );
+      const v1 = await ProposalVersion.create({
+        proposal: proposal._id,
+        versionNumber: 1,
+        kind: "submitted",
+        formData: draft.formData,
+        documents: draft.documents,
+        changeNote: "Initial submission",
+        createdBy: req.userId,
+        submittedAt: new Date(),
+      });
 
-      proposal.currentVersion = v1[0]._id;
+      proposal.currentVersion = v1._id;
       proposal.versionCount = 1;
       proposal.submittedAt = new Date();
       proposal.status = "Waiting to be assigned";
 
-      await proposal.save({ session });
-
-      await session.commitTransaction();
-      session.endSession();
+      await proposal.save();
 
       // Notify all administrators
       const admins = await Administrator.find({}).select("_id fullName email");
@@ -319,11 +576,29 @@ class ResearcherController {
         });
       }
 
-      return res.status(200).json({ success: true, proposal, version: v1[0] });
+      return res.status(200).json({ success: true, proposal, version: v1 });
     } catch (err) {
-      await session.abortTransaction();
-      session.endSession();
       console.log("submitInitial error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  // Get all proposals for the authenticated researcher
+  static async getAllProposals(req, res) {
+    try {
+      // Find all proposals matching the logged-in user's ID
+      // Sorting by updatedAt descending ensures the most recently modified ones appear first
+      const proposals = await Proposal.find({ researcher: req.userId })
+        .sort({ updatedAt: -1 })
+        .lean();
+
+      return res.status(200).json({
+        success: true,
+        count: proposals.length,
+        proposals,
+      });
+    } catch (err) {
+      console.log("getAllProposals error:", err);
       return res.status(500).json({ success: false, message: err.message });
     }
   }
@@ -427,10 +702,116 @@ class ResearcherController {
   }
 
   // Submit v2+ when Awaiting Modifications
-  static async submitUpdatedVersion(req, res) {
-    const session = await mongoose.startSession();
-    session.startTransaction();
+  // static async submitUpdatedVersion(req, res) {
+  //   const session = await mongoose.startSession();
+  //   session.startTransaction();
 
+  //   try {
+  //     const { proposalId } = req.params;
+  //     const { formData, changeNote } = req.body;
+
+  //     const proposal = await Proposal.findOne({
+  //       _id: proposalId,
+  //       researcher: req.userId,
+  //     }).session(session);
+
+  //     if (!proposal)
+  //       return res
+  //         .status(404)
+  //         .json({ success: false, message: "Proposal not found" });
+
+  //     if (proposal.status !== "Awaiting Modifications") {
+  //       return res.status(400).json({
+  //         success: false,
+  //         message:
+  //           "You can only submit updates when modifications are requested",
+  //       });
+  //     }
+
+  //     if (!changeNote || changeNote.trim().length < 3) {
+  //       return res.status(400).json({
+  //         success: false,
+  //         message: "changeNote is required (briefly explain what you changed)",
+  //       });
+  //     }
+
+  //     //   const uploaded = await uploadFilesToStorage(req.files || []);
+  //     const uploaded = await uploadFilesToStorage(req.files || [], {
+  //       proposalId: proposal._id.toString(),
+  //       versionTag: `v${proposal.versionCount + 1}`,
+  //     });
+
+  //     const parsedFormData =
+  //       typeof formData === "string" ? JSON.parse(formData) : formData;
+
+  //     const nextVersionNumber = proposal.versionCount + 1;
+
+  //     const newV = await ProposalVersion.create(
+  //       [
+  //         {
+  //           proposal: proposal._id,
+  //           versionNumber: nextVersionNumber,
+  //           kind: "submitted",
+  //           formData: parsedFormData,
+  //           documents: uploaded,
+  //           changeNote,
+  //           createdBy: req.userId,
+  //           submittedAt: new Date(),
+  //         },
+  //       ],
+  //       { session },
+  //     );
+
+  //     // ✅ Check if there is an "active" assignment for this proposal
+  //     // Active means a reviewer is still responsible for it.
+  //     const activeAssignment = await ReviewAssignment.findOne({
+  //       proposal: proposal._id,
+  //       status: { $in: ["assigned", "accepted", "in_progress"] },
+  //     })
+  //       .select("_id status reviewer")
+  //       .session(session)
+  //       .lean();
+
+  //     // ✅ Update proposal pointers + status based
+  //     proposal.currentVersion = newV[0]._id;
+  //     proposal.versionCount = nextVersionNumber;
+
+  //     proposal.status = activeAssignment
+  //       ? "Under Review"
+  //       : "Waiting to be assigned";
+
+  //     await proposal.save({ session });
+
+  //     await session.commitTransaction();
+  //     session.endSession();
+
+  //     // Notify assigned reviewer if proposal is still actively assigned
+  //     if (activeAssignment) {
+  //       await createNotification({
+  //         title: "Updated Proposal Submitted",
+  //         message: `The researcher has submitted an updated version of the proposal "${proposal.title}". Please review the changes.`,
+  //         proposalId: proposal._id,
+  //         senderId: req.userId,
+  //         receiverId: activeAssignment.reviewer,
+  //       });
+  //     }
+
+  //     return res.status(200).json({
+  //       success: true,
+  //       proposal,
+  //       version: newV[0],
+  //       hasActiveAssignment: Boolean(activeAssignment),
+  //       assignmentStatus: activeAssignment?.status || null,
+  //     });
+  //   } catch (err) {
+  //     await session.abortTransaction();
+  //     session.endSession();
+  //     console.log("submitUpdatedVersion error:", err);
+  //     return res.status(500).json({ success: false, message: err.message });
+  //   }
+  // }
+
+  static async submitUpdatedVersion(req, res) {
     try {
       const { proposalId } = req.params;
       const { formData, changeNote } = req.body;
@@ -438,7 +819,7 @@ class ResearcherController {
       const proposal = await Proposal.findOne({
         _id: proposalId,
         researcher: req.userId,
-      }).session(session);
+      });
 
       if (!proposal)
         return res
@@ -460,55 +841,66 @@ class ResearcherController {
         });
       }
 
-      //   const uploaded = await uploadFilesToStorage(req.files || []);
-      const uploaded = await uploadFilesToStorage(req.files || [], {
+      const previousVersion = await ProposalVersion.findOne({
+        proposal: proposal._id,
+        versionNumber: proposal.versionCount,
+      });
+
+      let mergedDocuments = previousVersion
+        ? [...previousVersion.documents]
+        : [];
+      const incomingFiles = req.files || {};
+      const newFileTypes = Object.keys(incomingFiles);
+
+      for (const type of newFileTypes) {
+        const existingDocIndex = mergedDocuments.findIndex(
+          (d) => d.type === type,
+        );
+        if (existingDocIndex !== -1) {
+          mergedDocuments.splice(existingDocIndex, 1);
+        }
+      }
+
+      const uploaded = await uploadFilesToStorage(incomingFiles, {
         proposalId: proposal._id.toString(),
         versionTag: `v${proposal.versionCount + 1}`,
       });
+
+      mergedDocuments = [...mergedDocuments, ...uploaded];
 
       const parsedFormData =
         typeof formData === "string" ? JSON.parse(formData) : formData;
 
       const nextVersionNumber = proposal.versionCount + 1;
 
-      const newV = await ProposalVersion.create(
-        [
-          {
-            proposal: proposal._id,
-            versionNumber: nextVersionNumber,
-            kind: "submitted",
-            formData: parsedFormData,
-            documents: uploaded,
-            changeNote,
-            createdBy: req.userId,
-            submittedAt: new Date(),
-          },
-        ],
-        { session },
-      );
+      const newV = await ProposalVersion.create({
+        proposal: proposal._id,
+        versionNumber: nextVersionNumber,
+        kind: "submitted",
+        formData: parsedFormData,
+        documents: mergedDocuments, // Use merged array
+        changeNote,
+        createdBy: req.userId,
+        submittedAt: new Date(),
+      });
 
-      // ✅ Check if there is an "active" assignment for this proposal
-      // Active means a reviewer is still responsible for it.
+      // Check if there is an "active" assignment for this proposal
       const activeAssignment = await ReviewAssignment.findOne({
         proposal: proposal._id,
         status: { $in: ["assigned", "accepted", "in_progress"] },
       })
         .select("_id status reviewer")
-        .session(session)
         .lean();
 
-      // ✅ Update proposal pointers + status based
-      proposal.currentVersion = newV[0]._id;
+      // Update proposal pointers + status based
+      proposal.currentVersion = newV._id;
       proposal.versionCount = nextVersionNumber;
 
       proposal.status = activeAssignment
         ? "Under Review"
         : "Waiting to be assigned";
 
-      await proposal.save({ session });
-
-      await session.commitTransaction();
-      session.endSession();
+      await proposal.save();
 
       // Notify assigned reviewer if proposal is still actively assigned
       if (activeAssignment) {
@@ -524,13 +916,11 @@ class ResearcherController {
       return res.status(200).json({
         success: true,
         proposal,
-        version: newV[0],
+        version: newV,
         hasActiveAssignment: Boolean(activeAssignment),
         assignmentStatus: activeAssignment?.status || null,
       });
     } catch (err) {
-      await session.abortTransaction();
-      session.endSession();
       console.log("submitUpdatedVersion error:", err);
       return res.status(500).json({ success: false, message: err.message });
     }

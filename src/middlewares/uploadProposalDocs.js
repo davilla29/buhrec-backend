@@ -25,4 +25,7 @@ export const uploadProposalDocs = multer({
   storage,
   fileFilter,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
-}).array("documents", 10); // field name: documents
+}).fields([
+  { name: "applicationLetter", maxCount: 1 },
+  { name: "proposalDocument", maxCount: 1 },
+]);
