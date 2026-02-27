@@ -527,9 +527,6 @@ class ResearcherController {
         });
       }
 
-      console.log("DB STATUS:", proposal.status);
-      console.log("DB PAYMENT STATUS:", proposal.payment?.status);
-
       if (proposal.payment?.status !== "paid" || proposal.status !== "Paid") {
         return res.status(400).json({
           success: false,
