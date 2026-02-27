@@ -60,8 +60,6 @@ function validateDraftRequirements(draft) {
     return "At least one researcher name is required";
   }
 
-  if (!fd.researcherName?.trim()) return "Researcher name is required";
-
   if (!fd.institution?.trim()) return "Institution is required";
 
   if (!fd.college?.trim()) return "College/School is required";
@@ -283,7 +281,9 @@ class ResearcherController {
         proposal.title = parsedFormData.projectName;
         await proposal.save(); // Save the updated shell title
       }
-      const existingFormData = existingDraft?.formData || {};
+      const existingFormData = existingDraft?.formData
+        ? existingDraft.formData.toObject()
+        : {};
 
       const mergedFormData = {
         ...existingFormData,
