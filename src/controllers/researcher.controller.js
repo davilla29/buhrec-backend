@@ -11,7 +11,7 @@ import {
   uploadBufferToCloudinary,
   deleteFromCloudinary,
 } from "../utils/cloudinaryUpload.js";
-import createNotification from "./notification.controller.js";
+import NotificationController from "./notification.controller.js";
 
 async function uploadFilesToStorage(
   filesObj = {},
@@ -567,7 +567,7 @@ class ResearcherController {
       const admins = await Administrator.find({}).select("_id fullName email");
 
       for (const admin of admins) {
-        await createNotification({
+        await NotificationController.createNotification({
           title: "New Proposal Submitted",
           message: `Researcher has submitted a proposal titled "${proposal.title}" and it is awaiting assignment.`,
           proposalId: proposal._id,
@@ -904,7 +904,7 @@ class ResearcherController {
 
       // Notify assigned reviewer if proposal is still actively assigned
       if (activeAssignment) {
-        await createNotification({
+        await NotificationController.createNotification({
           title: "Updated Proposal Submitted",
           message: `The researcher has submitted an updated version of the proposal "${proposal.title}". Please review the changes.`,
           proposalId: proposal._id,

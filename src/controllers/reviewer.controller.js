@@ -4,7 +4,7 @@ import { ReviewAssignment } from "../models/ReviewAssignment.js";
 import { Proposal } from "../models/Proposal.js";
 import { ProposalVersion } from "../models/ProposalVersion.js";
 import { ReviewComment } from "../models/ReviewComment.js";
-import createNotification from "./notification.controller.js";
+import NotificationController from "./notification.controller.js";
 
 function isValidObjectId(id) {
   return mongoose.Types.ObjectId.isValid(id);
@@ -544,7 +544,7 @@ class ReviewerController {
           message = `The reviewer has requested changes on your proposal "${assignment.proposal.title}".`;
         }
 
-        await createNotification({
+        await NotificationController.createNotification({
           title: "Proposal Review Update",
           message: message,
           proposalId: assignment.proposal._id,

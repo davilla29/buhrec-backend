@@ -7,7 +7,7 @@ import { ReviewAssignment } from "../models/ReviewAssignment.js";
 import { Administrator } from "../models/Administrator.js";
 import { sendAccountCreationEmail } from "../mail/emailService.js";
 import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
-import createNotification from "./notification.controller.js";
+import NotificationController from "./notification.controller.js";
 
 // small sanitize helper (don’t return password/photo buffer)
 const sanitizeReviewer = (r) => ({
@@ -352,7 +352,7 @@ class AdminController {
       await proposal.save();
 
       // Notify reviewer of the assignment
-      await createNotification({
+      await NotificationController.createNotification({
         title: "New Proposal Assigned",
         message: `You have been assigned to review the proposal "${proposal.title}". Please check your dashboard for details.`,
         proposalId: proposal._id,
