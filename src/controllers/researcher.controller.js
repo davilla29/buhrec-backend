@@ -99,7 +99,19 @@ class ResearcherController {
         status: "Draft",
       });
 
-      return res.status(201).json({ success: true, proposal });
+      // IMMEDIATELY create the initial draft (v0)
+      // and pre-fill the projectName so they match perfectly!
+      const draft = await ProposalVersion.create({
+        proposal: proposal._id,
+        versionNumber: 0,
+        kind: "draft",
+        formData: {
+          projectName: title,
+        },
+        createdBy: req.userId,
+      });
+
+      return res.status(201).json({ success: true, proposal, draft });
     } catch (err) {
       console.log("createProposal error:", err);
       return res.status(500).json({ success: false, message: err.message });
@@ -249,6 +261,15 @@ class ResearcherController {
       // 5. Merge formData for PATCH behavior
       const parsedFormData =
         typeof formData === "string" ? JSON.parse(formData) : formData || {};
+
+      // Auto Sync ogic
+      if (
+        parsedFormData.projectName &&
+        parsedFormData.projectName !== proposal.title
+      ) {
+        proposal.title = parsedFormData.projectName;
+        await proposal.save(); // Save the updated shell title
+      }
       const existingFormData = existingDraft?.formData || {};
 
       const mergedFormData = {
@@ -393,6 +414,8 @@ class ResearcherController {
           .status(400)
           .json({ success: false, message: "Save a draft first" });
       }
+
+      console.log(draft);
 
       const requirementError = validateDraftRequirements(draft);
       if (requirementError) {
