@@ -50,6 +50,16 @@ function validateDraftRequirements(draft) {
 
   if (!fd.projectName?.trim()) return "Project name is required";
 
+  // Check that the array exists, is not empty, and the first item isn't blank
+  if (
+    !fd.researchers ||
+    !Array.isArray(fd.researchers) ||
+    fd.researchers.length === 0 ||
+    !fd.researchers[0]?.trim()
+  ) {
+    return "At least one researcher name is required";
+  }
+
   if (!fd.researcherName?.trim()) return "Researcher name is required";
 
   if (!fd.institution?.trim()) return "Institution is required";
@@ -61,6 +71,8 @@ function validateDraftRequirements(draft) {
   if (!fd.category) return "Category is required";
 
   if (!fd.supervisor?.trim()) return "Supervisor is required";
+
+  if (!fd.supervisorEmail?.trim()) return "Supervisor email is required";
 
   if (!draft.documents?.length)
     return "All required documents must be uploaded";
@@ -107,6 +119,7 @@ class ResearcherController {
         kind: "draft",
         formData: {
           projectName: title,
+          researchers: [],
         },
         createdBy: req.userId,
       });
