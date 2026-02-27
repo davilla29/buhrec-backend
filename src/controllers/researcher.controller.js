@@ -11,7 +11,7 @@ import {
   uploadBufferToCloudinary,
   deleteFromCloudinary,
 } from "../utils/cloudinaryUpload.js";
-import createNotification from "./notification.controller.js";
+import NotificationController from "./notification.controller.js";
 
 async function uploadFilesToStorage(
   filesObj = {},
@@ -460,7 +460,7 @@ class ResearcherController {
         tx_ref: proposal.payment.txRef,
         amount: 7000,
         currency: "NGN",
-        redirect_url: `${process.env.API_BASE_URL}/api/payments/flutterwave/callback`, // Make sure this is in your .env
+        redirect_url: `${process.env.BACKEND_URL_DEV}/api/payments/flutterwave/callback`, // Make sure this is in your .env
         customer: {
           email: researcher.email,
           name: researcher.fullName,
@@ -520,17 +520,17 @@ class ResearcherController {
           .status(404)
           .json({ success: false, message: "Proposal not found" });
 
-      if (proposal.payment?.status !== "paid" || proposal.status !== "Paid") {
-        return res.status(400).json({
-          success: false,
-          message: "Payment required before submission",
-        });
-      }
-
       if (proposal.versionCount > 0) {
         return res.status(400).json({
           success: false,
           message: "Already submitted. Use version update flow if requested.",
+        });
+      }
+
+      if (proposal.payment?.status !== "paid" || proposal.status !== "Paid") {
+        return res.status(400).json({
+          success: false,
+          message: "Payment required before submission",
         });
       }
 
@@ -567,7 +567,7 @@ class ResearcherController {
       const admins = await Administrator.find({}).select("_id fullName email");
 
       for (const admin of admins) {
-        await createNotification({
+        await NotificationController.createNotification({
           title: "New Proposal Submitted",
           message: `Researcher has submitted a proposal titled "${proposal.title}" and it is awaiting assignment.`,
           proposalId: proposal._id,
@@ -904,7 +904,7 @@ class ResearcherController {
 
       // Notify assigned reviewer if proposal is still actively assigned
       if (activeAssignment) {
-        await createNotification({
+        await NotificationController.createNotification({
           title: "Updated Proposal Submitted",
           message: `The researcher has submitted an updated version of the proposal "${proposal.title}". Please review the changes.`,
           proposalId: proposal._id,
