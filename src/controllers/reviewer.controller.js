@@ -46,7 +46,7 @@ class ReviewerController {
         .sort({ createdAt: -1 })
         .populate({
           path: "proposal",
-          select: "title status stage researcher createdAt updatedAt",
+          select: "title email status stage researcher createdAt updatedAt",
         })
         .lean();
 

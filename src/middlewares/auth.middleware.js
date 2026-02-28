@@ -66,7 +66,7 @@ export const isResearcher = (req, res, next) => {
 };
 
 export const isReviewer = (req, res, next) => {
-  if (req.userRole !== "researcher")
+  if (req.userRole !== "reviewer")
     return res
       .status(403)
       .json({
