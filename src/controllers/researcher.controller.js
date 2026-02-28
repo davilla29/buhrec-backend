@@ -804,6 +804,62 @@ class ResearcherController {
       return res.status(500).json({ success: false, message: "Server error" });
     }
   }
+
+  // ==========================================
+  // UPDATE RESEARCHER PASSWORD
+  // ==========================================
+  static async updatePassword(req, res) {
+    try {
+      const { currentPassword, newPassword } = req.body;
+
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({
+          success: false,
+          message: "Both current and new passwords are required",
+        });
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: "New password must be at least 6 characters long",
+        });
+      }
+
+      // Need to explicitly select the password field for comparison
+      const researcher = await Researcher.findById(req.userId).select(
+        "+password",
+      );
+      if (!researcher) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Researcher not found" });
+      }
+
+      // Verify current password
+      const isMatch = await bcrypt.compare(
+        currentPassword,
+        researcher.password,
+      );
+      if (!isMatch) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Incorrect current password" });
+      }
+
+      // Hash and save new password
+      researcher.password = await bcrypt.hash(newPassword, 12);
+      await researcher.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Password updated successfully",
+      });
+    } catch (error) {
+      console.error("Update researcher password error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
 }
 
 export default ResearcherController;
