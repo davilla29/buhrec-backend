@@ -285,11 +285,11 @@ class AuthController {
     }
   }
 
-  // Login
-  static async login(req, res) {
+  /*==========================================
+    ADMIN LOGIN
+   ========================================== */
+  static async adminLogin(req, res) {
     try {
-      // Get inputs from the body
-
       const email = req.body?.email?.trim()?.toLowerCase();
       const { password } = req.body;
 
@@ -300,9 +300,10 @@ class AuthController {
         });
       }
 
-      const user = await findUserByEmailWithPassword(email);
+      const user = await Administrator.findOne({ email })
+        .select("+password +verificationToken +verificationTokenExpiresAt")
+        .lean();
 
-      // Dummy compare if not found (prevents user-enumeration timing leak)
       if (!user) {
         await bcrypt.compare(password || "", DUMMY_PASSWORD_HASH);
         return res
@@ -317,13 +318,11 @@ class AuthController {
           .json({ success: false, message: "Invalid credentials" });
       }
 
-      // ✅ Email verified check
       if (user.isVerified === false) {
         const verificationCode = generateVerificationCode();
         const hashedCode = await bcrypt.hash(verificationCode, 10);
 
-        const Model = ROLE_MODEL_MAP[user.role];
-        await Model.updateOne(
+        await Administrator.updateOne(
           { _id: user._id },
           {
             $set: {
@@ -333,7 +332,6 @@ class AuthController {
           },
         );
 
-        // ✅ Send email
         try {
           const frontendUrl =
             process.env.NODE_ENV === "development"
@@ -341,7 +339,6 @@ class AuthController {
               : process.env.FRONTEND_URL_PROD;
 
           const verificationLink = `${frontendUrl}/verify-email`;
-
           const fullName =
             user.fullName || `${user.fName ?? ""} ${user.lName ?? ""}`.trim();
 
@@ -363,18 +360,15 @@ class AuthController {
         });
       }
 
-      generateTokenAndSetCookie(res, user._id, user.role);
+      generateTokenAndSetCookie(res, user._id, "admin");
 
-      // Update lastLoginAt (best-effort)
       try {
-        const Model = ROLE_MODEL_MAP[user.role];
-        await Model.updateOne(
+        await Administrator.updateOne(
           { _id: user._id },
           { $set: { lastLoginAt: new Date() } },
         );
       } catch (_) {}
 
-      // create a copy of the user object and remove the password from the copy.
       const safeUser = { ...user };
       delete safeUser.password;
       delete safeUser.verificationToken;
@@ -386,10 +380,116 @@ class AuthController {
         data: safeUser,
       });
     } catch (error) {
-      console.error("Login error:", error);
+      console.error("Admin login error:", error);
       return res.status(500).json({ success: false, message: "Server error" });
     }
   }
+
+  // // Login
+  // static async login(req, res) {
+  //   try {
+  //     // Get inputs from the body
+
+  //     const email = req.body?.email?.trim()?.toLowerCase();
+  //     const { password } = req.body;
+
+  //     if (!email || !password) {
+  //       return res.status(400).json({
+  //         success: false,
+  //         message: "Email and password are required",
+  //       });
+  //     }
+
+  //     const user = await findUserByEmailWithPassword(email);
+
+  //     // Dummy compare if not found (prevents user-enumeration timing leak)
+  //     if (!user) {
+  //       await bcrypt.compare(password || "", DUMMY_PASSWORD_HASH);
+  //       return res
+  //         .status(400)
+  //         .json({ success: false, message: "Invalid email or password" });
+  //     }
+
+  //     const ok = await bcrypt.compare(password, user.password);
+  //     if (!ok) {
+  //       return res
+  //         .status(401)
+  //         .json({ success: false, message: "Invalid credentials" });
+  //     }
+
+  //     // ✅ Email verified check
+  //     if (user.isVerified === false) {
+  //       const verificationCode = generateVerificationCode();
+  //       const hashedCode = await bcrypt.hash(verificationCode, 10);
+
+  //       const Model = ROLE_MODEL_MAP[user.role];
+  //       await Model.updateOne(
+  //         { _id: user._id },
+  //         {
+  //           $set: {
+  //             verificationToken: hashedCode,
+  //             verificationTokenExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
+  //           },
+  //         },
+  //       );
+
+  //       // ✅ Send email
+  //       try {
+  //         const frontendUrl =
+  //           process.env.NODE_ENV === "development"
+  //             ? process.env.FRONTEND_URL_DEV
+  //             : process.env.FRONTEND_URL_PROD;
+
+  //         const verificationLink = `${frontendUrl}/verify-email`;
+
+  //         const fullName =
+  //           user.fullName || `${user.fName ?? ""} ${user.lName ?? ""}`.trim();
+
+  //         await sendVerificationCodeEmail({
+  //           fullName,
+  //           userEmail: user.email,
+  //           verificationCode,
+  //           verificationLink,
+  //         });
+  //       } catch (mailErr) {
+  //         console.error("Failed to send verification email:", mailErr);
+  //       }
+
+  //       return res.status(403).json({
+  //         success: false,
+  //         message:
+  //           "Email not verified. Check your inbox/spam for the verification code.",
+  //         needVerification: true,
+  //       });
+  //     }
+
+  //     generateTokenAndSetCookie(res, user._id, user.role);
+
+  //     // Update lastLoginAt (best-effort)
+  //     try {
+  //       const Model = ROLE_MODEL_MAP[user.role];
+  //       await Model.updateOne(
+  //         { _id: user._id },
+  //         { $set: { lastLoginAt: new Date() } },
+  //       );
+  //     } catch (_) {}
+
+  //     // create a copy of the user object and remove the password from the copy.
+  //     const safeUser = { ...user };
+  //     delete safeUser.password;
+  //     delete safeUser.verificationToken;
+  //     delete safeUser.verificationTokenExpiresAt;
+
+  //     return res.status(200).json({
+  //       success: true,
+  //       message: "Login successful",
+  //       data: safeUser,
+  //     });
+  //   } catch (error) {
+  //     console.error("Login error:", error);
+  //     return res.status(500).json({ success: false, message: "Server error" });
+  //   }
+  // }
 
   // Researcher Register
   static async researcherRegister(req, res) {
