@@ -130,82 +130,6 @@ class ResearcherController {
   }
 
   // Save draft (version 0)
-  // static async saveDraft(req, res) {
-  //   const session = await mongoose.startSession();
-  //   session.startTransaction();
-
-  //   try {
-  //     const { proposalId } = req.params;
-  //     const { formData } = req.body; // formData should be JSON from frontend
-
-  //     const proposal = await Proposal.findOne({
-  //       _id: proposalId,
-  //       researcher: req.userId,
-  //     }).session(session);
-
-  //     if (!proposal)
-  //       return res
-  //         .status(404)
-  //         .json({ success: false, message: "Proposal not found" });
-
-  //     /*
-  //     lock editing when truly locked
-  //     Editing is allowed only when it is still in draft or awaiting payment
-  //     */
-  //     const lockedStatuses = ["Under Review", "Approved", "Rejected"];
-  //     if (lockedStatuses.includes(proposal.status)) {
-  //       return res.status(400).json({
-  //         success: false,
-  //         message: "Proposal is locked and cannot be edited",
-  //       });
-  //     }
-  //     const uploaded = await uploadFilesToStorage(req.files || [], {
-  //       proposalId: proposal._id.toString(),
-  //       versionTag: "draft",
-  //     });
-
-  //     const parsedFormData =
-  //       typeof formData === "string" ? JSON.parse(formData) : formData;
-
-  //     const existingDraft = await ProposalVersion.findOne({
-  //       proposal: proposal._id,
-  //       versionNumber: 0,
-  //     }).session(session);
-
-  //     const mergedDocuments =
-  //       uploaded.length > 0 ? uploaded : existingDraft?.documents || [];
-
-  //     const draft = await ProposalVersion.findOneAndUpdate(
-  //       { proposal: proposal._id, versionNumber: 0 },
-  //       {
-  //         proposal: proposal._id,
-  //         versionNumber: 0,
-  //         kind: "draft",
-  //         formData: parsedFormData,
-  //         documents: mergedDocuments,
-
-  //         createdBy: req.userId,
-  //       },
-  //       { new: true, upsert: true, session },
-  //     );
-
-  //     // Once draft is meaningful, you can set Awaiting Payment (optional)
-  //     // proposal.status = "Awaiting Payment";
-  //     await proposal.save({ session });
-
-  //     await session.commitTransaction();
-  //     session.endSession();
-
-  //     return res.status(200).json({ success: true, draft });
-  //   } catch (err) {
-  //     await session.abortTransaction();
-  //     session.endSession();
-  //     console.log("saveDraft error:", err);
-  //     return res.status(500).json({ success: false, message: err.message });
-  //   }
-  // }
-
-  // Save draft (version 0)
   static async saveDraft(req, res) {
     try {
       const { proposalId } = req.params;
@@ -310,90 +234,6 @@ class ResearcherController {
       return res.status(500).json({ success: false, message: err.message });
     }
   }
-
-  // Initiate payment (7000 fixed) AFTER requirements are met
-  // static async initPayment(req, res) {
-  //   try {
-  //     const { proposalId } = req.params;
-
-  //     const proposal = await Proposal.findOne({
-  //       _id: proposalId,
-  //       researcher: req.userId,
-  //     });
-
-  //     if (!proposal)
-  //       return res
-  //         .status(404)
-  //         .json({ success: false, message: "Proposal not found" });
-
-  //     if (proposal.payment?.status === "paid" || proposal.status === "Paid") {
-  //       return res
-  //         .status(400)
-  //         .json({ success: false, message: "Already paid" });
-  //     }
-
-  //     const draft = await ProposalVersion.findOne({
-  //       proposal: proposal._id,
-  //       versionNumber: 0,
-  //     });
-
-  //     if (!draft) {
-  //       return res
-  //         .status(400)
-  //         .json({ success: false, message: "Save a draft first" });
-  //     }
-
-  //     const requirementError = validateDraftRequirements(draft);
-  //     if (requirementError) {
-  //       return res
-  //         .status(400)
-  //         .json({ success: false, message: requirementError });
-  //     }
-
-  //     // mark awaiting payment
-  //     proposal.status = "Awaiting Payment";
-  //     proposal.payment = proposal.payment || {};
-  //     proposal.payment.status = "pending";
-  //     proposal.payment.txRef = `TX-${proposal.applicationId}-${Date.now()}`;
-
-  //     await proposal.save();
-
-  //     // Call Flutterwave initialize payment
-  //     // Return payment link to frontend (it opens it)
-  //     // You will implement flutterwave service using your secret key
-  //     const researcher = await Researcher.findById(req.userId).select(
-  //       "email fullName",
-  //     );
-  //     if (!researcher)
-  //       return res
-  //         .status(401)
-  //         .json({ success: false, message: "Unauthorized" });
-
-  //     const paymentLink = await req.flutterwave.init({
-  //       amount: 7000,
-  //       currency: "NGN",
-  //       tx_ref: proposal.payment.txRef,
-
-  //       customer: { email: researcher.email, name: researcher.fullName },
-  //       meta: {
-  //         proposalId: proposal._id.toString(),
-  //         applicationId: proposal.applicationId,
-  //       },
-  //       redirect_url: `${process.env.API_BASE_URL}/api/payments/flutterwave/callback`,
-  //     });
-
-  //     return res.status(200).json({
-  //       success: true,
-  //       amount: 7000,
-  //       currency: "NGN",
-  //       txRef: proposal.payment.txRef,
-  //       paymentLink,
-  //     });
-  //   } catch (err) {
-  //     console.log("initPayment error:", err);
-  //     return res.status(500).json({ success: false, message: err.message });
-  //   }
-  // }
 
   // Initiate payment (7000 fixed) AFTER requirements are met
   static async initPayment(req, res) {
@@ -923,6 +763,45 @@ class ResearcherController {
     } catch (err) {
       console.log("submitUpdatedVersion error:", err);
       return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  // ==========================================
+  // UPDATE RESEARCHER PROFILE
+  // ==========================================
+  static async updateProfile(req, res) {
+    try {
+      const { fullName, institution, occupation } = req.body;
+
+      // Find the researcher
+      const researcher = await Researcher.findById(req.userId);
+      if (!researcher) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Researcher not found" });
+      }
+
+      // Update allowed fields if they are provided
+      if (fullName) researcher.fullName = fullName.trim();
+      if (institution) researcher.institution = institution.trim();
+      if (occupation) researcher.occupation = occupation.trim();
+
+      await researcher.save();
+
+      // Sanitize before sending back
+      const safeUser = researcher.toObject();
+      delete safeUser.password;
+      delete safeUser.verificationToken;
+      delete safeUser.verificationTokenExpiresAt;
+
+      return res.status(200).json({
+        success: true,
+        message: "Profile updated successfully",
+        data: safeUser,
+      });
+    } catch (error) {
+      console.error("Update researcher profile error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
     }
   }
 }
