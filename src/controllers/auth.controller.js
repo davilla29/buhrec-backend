@@ -106,7 +106,7 @@ class AuthController {
         await bcrypt.compare(password || "", DUMMY_PASSWORD_HASH);
         return res
           .status(400)
-          .json({ success: false, message: "Invalid email or password" });
+          .json({ success: false, message: "Invalid credentials" });
       }
 
       const ok = await bcrypt.compare(password, user.password);
@@ -208,7 +208,7 @@ class AuthController {
         await bcrypt.compare(password || "", DUMMY_PASSWORD_HASH);
         return res
           .status(400)
-          .json({ success: false, message: "Invalid email or password" });
+          .json({ success: false, message: "Invalid credentials" });
       }
 
       const ok = await bcrypt.compare(password, user.password);
@@ -308,7 +308,7 @@ class AuthController {
         await bcrypt.compare(password || "", DUMMY_PASSWORD_HASH);
         return res
           .status(400)
-          .json({ success: false, message: "Invalid email or password" });
+          .json({ success: false, message: "Invalid credentials" });
       }
 
       const ok = await bcrypt.compare(password, user.password);
@@ -407,7 +407,7 @@ class AuthController {
   //       await bcrypt.compare(password || "", DUMMY_PASSWORD_HASH);
   //       return res
   //         .status(400)
-  //         .json({ success: false, message: "Invalid email or password" });
+  //         .json({ success: false, message: "Invalid credentials" });
   //     }
 
   //     const ok = await bcrypt.compare(password, user.password);

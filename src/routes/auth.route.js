@@ -5,10 +5,13 @@ import { verifyToken } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-// Public/common auth
-router.post("/login", AuthController.login);
+// LOGIN ROUTES
+// router.post("/login", AuthController.login);
+router.post("/login/researcher", AuthController.researcherLogin);
+router.post("/login/reviewer", AuthController.reviewerLogin);
+router.post("/login/admin", AuthController.adminLogin);
 
-// Researcher signup (matches the UI)
+// Researcher signup 
 router.post("/researcher/register", AuthController.researcherRegister);
 
 // Admin signup
