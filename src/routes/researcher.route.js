@@ -22,6 +22,12 @@ router.patch(
   ResearcherController.saveDraft,
 );
 
+// Update profile details (fullName, institution, occupation)
+router.put("/profile", verifyToken, ResearcherController.updateProfile);
+
+// Update password (requires current password)
+router.put("/password", verifyToken, ResearcherController.updatePassword);
+
 // Start payment (7000 fixed)
 router.post(
   "/proposals/:proposalId/payment/init",

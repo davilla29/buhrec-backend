@@ -170,7 +170,9 @@ class AdminController {
     try {
       // basic reviewer info
       const reviewers = await Reviewer.find()
-        .select("fullName title isActive specialization institution photoUrl createdAt")
+        .select(
+          "fullName title email isActive specialization institution photoUrl createdAt",
+        )
         .lean();
 
       // OPTIONAL: attach ongoing assignments count
@@ -273,6 +275,24 @@ class AdminController {
     }
   }
 
+  // Get all proposals
+  static async getAllProposals(req, res) {
+    try {
+      // Find all proposals matching the logged-in user's ID
+      // Sorting by updatedAt descending ensures the most recently modified ones appear first
+      const proposals = await Proposal.find().sort({ updatedAt: -1 }).lean();
+
+      return res.status(200).json({
+        success: true,
+        count: proposals.length,
+        proposals,
+      });
+    } catch (err) {
+      console.log("getAllProposals error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
   // Assign a reviewer to a proposal
   static async assignReviewerToProposal(req, res) {
     try {
@@ -318,18 +338,46 @@ class AdminController {
         });
       }
 
-      // Prevent duplicates
-      const existing = await ReviewAssignment.findOne({
+      // 1. Check if there's any active assignment (anything NOT rejected)
+      const activeAssignment = await ReviewAssignment.findOne({
         proposal: proposal._id,
-        reviewer: reviewer._id,
+        status: { $ne: "rejected" }, // 'assigned', 'accepted', 'in_progress', 'submitted', etc.
       }).lean();
 
-      if (existing) {
+      if (activeAssignment) {
         return res.status(409).json({
           success: false,
-          message: "This reviewer is already assigned to this proposal",
+          message: `This proposal is currently assigned to someone else (Status: ${activeAssignment.status}). You can only assign a new reviewer if the previous reviewer rejected the assignment.`,
         });
       }
+
+      // 2. Prevent assigning it back to the SAME reviewer who rejected it
+      const previouslyRejected = await ReviewAssignment.findOne({
+        proposal: proposal._id,
+        reviewer: reviewer._id,
+        status: "rejected",
+      }).lean();
+
+      if (previouslyRejected) {
+        return res.status(409).json({
+          success: false,
+          message:
+            "This reviewer previously rejected this proposal. Please select a different reviewer.",
+        });
+      }
+
+      // // Prevent duplicates
+      // const existing = await ReviewAssignment.findOne({
+      //   proposal: proposal._id,
+      //   reviewer: reviewer._id,
+      // }).lean();
+
+      // if (existing) {
+      //   return res.status(409).json({
+      //     success: false,
+      //     message: "This reviewer is already assigned to this proposal",
+      //   });
+      // }
 
       // Create assignment
       const assignment = await ReviewAssignment.create({
@@ -488,10 +536,11 @@ class AdminController {
     }
   }
 
+  /* To handle a situation where a reviewer accepted the proposal but is taking too long and the admin needs to forcibly take it away from them and give it to someone else. */
   static async reassignSingleAssignment(req, res) {
     try {
       const { assignmentId } = req.params;
-      const { newReviewerId } = req.body;
+      const { newReviewerId, dueAt } = req.body;
 
       if (!newReviewerId) {
         return res.status(400).json({
@@ -500,6 +549,23 @@ class AdminController {
         });
       }
 
+      // 1. Validate the old assignment
+      const oldAssignment = await ReviewAssignment.findById(assignmentId);
+      if (!oldAssignment) {
+        return res.status(404).json({
+          success: false,
+          message: "Original assignment not found",
+        });
+      }
+
+      if (["submitted", "withdrawn"].includes(oldAssignment.status)) {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot reassign. The current assignment is already marked as '${oldAssignment.status}'`,
+        });
+      }
+
+      // 2. Validate the new reviewer
       const newReviewer = await Reviewer.findById(newReviewerId);
       if (!newReviewer || !newReviewer.isActive) {
         return res.status(400).json({
@@ -508,31 +574,86 @@ class AdminController {
         });
       }
 
-      const assignment = await ReviewAssignment.findById(assignmentId);
-
-      if (!assignment) {
-        return res.status(404).json({
-          success: false,
-          message: "Assignment not found",
-        });
-      }
-
-      if (["submitted", "rejected", "withdrawn"].includes(assignment.status)) {
+      if (oldAssignment.reviewer.toString() === newReviewerId) {
         return res.status(400).json({
           success: false,
-          message: "This assignment can no longer be reassigned",
+          message: "The proposal is already assigned to this exact reviewer.",
         });
       }
 
-      assignment.reviewer = newReviewerId;
-      assignment.assignedAt = new Date();
+      // 3. Ensure the new reviewer hasn't previously rejected this exact proposal
+      const previouslyRejected = await ReviewAssignment.findOne({
+        proposal: oldAssignment.proposal,
+        reviewer: newReviewerId,
+        status: "rejected",
+      }).lean();
 
-      await assignment.save();
+      if (previouslyRejected) {
+        return res.status(409).json({
+          success: false,
+          message:
+            "This reviewer previously rejected this proposal. Please select a different reviewer.",
+        });
+      }
+
+      // Mark the old assignment as withdrawn (preserving history)
+      // If it was already "rejected", we don't need to withdraw it, but if it was "assigned", "accepted", or "in_progress", we do.
+      if (oldAssignment.status !== "rejected") {
+        oldAssignment.status = "withdrawn";
+        // Optionally save a reason: oldAssignment.declineReason = "Admin forcibly reassigned";
+        await oldAssignment.save();
+      }
+
+      // 5. Create the NEW assignment record
+      const newAssignment = await ReviewAssignment.create({
+        proposal: oldAssignment.proposal,
+        reviewer: newReviewerId,
+        status: "assigned",
+        assignedBy: req.userId,
+        assignedAt: new Date(),
+        ...(dueAt ? { dueAt: new Date(dueAt) } : {}),
+      });
+
+      // 6. Update Proposal metadata
+      const proposal = await Proposal.findById(oldAssignment.proposal);
+      if (proposal) {
+        const now = new Date();
+        proposal.status = "Waiting to be assigned";
+        proposal.assignedAt = now;
+        proposal.lastStatusChangedBy = newReviewerId;
+        proposal.lastStatusChangedAt = now;
+        await proposal.save();
+      }
+
+      // 7. Send Notifications
+      // Notify the new reviewer
+      await NotificationController.createNotification({
+        title: "New Proposal Assigned",
+        message: `You have been assigned to review a proposal. Please check your dashboard for details.`,
+        proposalId: oldAssignment.proposal,
+        senderId: req.userId,
+        receiverId: newReviewerId,
+      });
+
+      // Optionally notify the old reviewer that it was taken away from them
+      if (oldAssignment.status === "withdrawn") {
+        await NotificationController.createNotification({
+          title: "Proposal Assignment Withdrawn",
+          message: `The proposal you were assigned to review has been withdrawn and reassigned by the administrator.`,
+          proposalId: oldAssignment.proposal,
+          senderId: req.userId,
+          receiverId: oldAssignment.reviewer,
+        });
+      }
 
       return res.status(200).json({
         success: true,
-        message: "Assignment reassigned successfully",
-        data: assignment,
+        message:
+          "Assignment successfully withdrawn and reassigned to the new reviewer.",
+        data: {
+          withdrawnAssignment: oldAssignment._id,
+          newAssignment,
+        },
       });
     } catch (error) {
       console.error("Reassign single assignment error:", error);
