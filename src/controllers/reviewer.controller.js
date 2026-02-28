@@ -564,6 +564,45 @@ class ReviewerController {
       return res.status(500).json({ success: false, message: error.message });
     }
   }
+
+  // ==========================================
+  // UPDATE REVIEWER PROFILE
+  // ==========================================
+  static async updateProfile(req, res) {
+    try {
+      const { fullName, institution, title, specialization } = req.body;
+
+      const reviewer = await Reviewer.findById(req.userId);
+      if (!reviewer) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Reviewer not found" });
+      }
+
+      // Update allowed fields
+      if (fullName) reviewer.fullName = fullName.trim();
+      if (institution) reviewer.institution = institution.trim();
+      if (title) reviewer.title = title.trim();
+      if (specialization) reviewer.specialization = specialization.trim();
+
+      await reviewer.save();
+
+      // Sanitize
+      const safeUser = reviewer.toObject();
+      delete safeUser.password;
+      delete safeUser.verificationToken;
+      delete safeUser.verificationTokenExpiresAt;
+
+      return res.status(200).json({
+        success: true,
+        message: "Profile updated successfully",
+        data: safeUser,
+      });
+    } catch (error) {
+      console.error("Update reviewer profile error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
 }
 
 export default ReviewerController;
