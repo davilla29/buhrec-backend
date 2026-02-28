@@ -46,7 +46,7 @@ class ReviewerController {
         .sort({ createdAt: -1 })
         .populate({
           path: "proposal",
-          select: "title status stage researcher createdAt updatedAt",
+          select: "title email status stage researcher createdAt updatedAt",
         })
         .lean();
 
@@ -562,6 +562,96 @@ class ReviewerController {
     } catch (error) {
       console.log("submitDecision error:", error);
       return res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  // ==========================================
+  // UPDATE REVIEWER PROFILE
+  // ==========================================
+  static async updateProfile(req, res) {
+    try {
+      const { fullName, institution, title, specialization } = req.body;
+
+      const reviewer = await Reviewer.findById(req.userId);
+      if (!reviewer) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Reviewer not found" });
+      }
+
+      // Update allowed fields
+      if (fullName) reviewer.fullName = fullName.trim();
+      if (institution) reviewer.institution = institution.trim();
+      if (title) reviewer.title = title.trim();
+      if (specialization) reviewer.specialization = specialization.trim();
+
+      await reviewer.save();
+
+      // Sanitize
+      const safeUser = reviewer.toObject();
+      delete safeUser.password;
+      delete safeUser.verificationToken;
+      delete safeUser.verificationTokenExpiresAt;
+
+      return res.status(200).json({
+        success: true,
+        message: "Profile updated successfully",
+        data: safeUser,
+      });
+    } catch (error) {
+      console.error("Update reviewer profile error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+
+  // ==========================================
+  // UPDATE REVIEWER PASSWORD
+  // ==========================================
+  static async updatePassword(req, res) {
+    try {
+      const { currentPassword, newPassword } = req.body;
+
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({
+          success: false,
+          message: "Both current and new passwords are required",
+        });
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: "New password must be at least 6 characters long",
+        });
+      }
+
+      // Need to explicitly select the password field for comparison
+      const reviewer = await Reviewer.findById(req.userId).select("+password");
+      if (!reviewer) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Reviewer not found" });
+      }
+
+      // Verify current password
+      const isMatch = await bcrypt.compare(currentPassword, reviewer.password);
+      if (!isMatch) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Incorrect current password" });
+      }
+
+      // Hash and save new password
+      reviewer.password = await bcrypt.hash(newPassword, 12);
+      await reviewer.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Password updated successfully",
+      });
+    } catch (error) {
+      console.error("Update reviewer password error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
     }
   }
 }
