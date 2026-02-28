@@ -603,6 +603,57 @@ class ReviewerController {
       return res.status(500).json({ success: false, message: "Server error" });
     }
   }
+
+  // ==========================================
+  // UPDATE REVIEWER PASSWORD
+  // ==========================================
+  static async updatePassword(req, res) {
+    try {
+      const { currentPassword, newPassword } = req.body;
+
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({
+          success: false,
+          message: "Both current and new passwords are required",
+        });
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: "New password must be at least 6 characters long",
+        });
+      }
+
+      // Need to explicitly select the password field for comparison
+      const reviewer = await Reviewer.findById(req.userId).select("+password");
+      if (!reviewer) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Reviewer not found" });
+      }
+
+      // Verify current password
+      const isMatch = await bcrypt.compare(currentPassword, reviewer.password);
+      if (!isMatch) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Incorrect current password" });
+      }
+
+      // Hash and save new password
+      reviewer.password = await bcrypt.hash(newPassword, 12);
+      await reviewer.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Password updated successfully",
+      });
+    } catch (error) {
+      console.error("Update reviewer password error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
 }
 
 export default ReviewerController;
