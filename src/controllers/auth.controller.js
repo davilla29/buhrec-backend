@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import crypto from "crypto"
+import crypto from "crypto";
 import { Researcher } from "../models/Researcher.js";
 import { Reviewer } from "../models/Reviewer.js";
 import { Administrator } from "../models/Administrator.js";
@@ -83,6 +83,107 @@ async function findUserByEmailForVerification(email) {
 }
 
 class AuthController {
+  /* ==========================================
+   RESEARCHER LOGIN
+  ========================================== */
+  static async researcherLogin(req, res) {
+    try {
+      const email = req.body?.email?.trim()?.toLowerCase();
+      const { password } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({
+          success: false,
+          message: "Email and password are required",
+        });
+      }
+
+      const user = await Researcher.findOne({ email })
+        .select("+password +verificationToken +verificationTokenExpiresAt")
+        .lean();
+
+      if (!user) {
+        await bcrypt.compare(password || "", DUMMY_PASSWORD_HASH);
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid email or password" });
+      }
+
+      const ok = await bcrypt.compare(password, user.password);
+      if (!ok) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Invalid credentials" });
+      }
+
+      // Email verification check
+      if (user.isVerified === false) {
+        const verificationCode = generateVerificationCode();
+        const hashedCode = await bcrypt.hash(verificationCode, 10);
+
+        await Researcher.updateOne(
+          { _id: user._id },
+          {
+            $set: {
+              verificationToken: hashedCode,
+              verificationTokenExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
+            },
+          },
+        );
+
+        try {
+          const frontendUrl =
+            process.env.NODE_ENV === "development"
+              ? process.env.FRONTEND_URL_DEV
+              : process.env.FRONTEND_URL_PROD;
+
+          const verificationLink = `${frontendUrl}/verify-email`;
+          const fullName =
+            user.fullName || `${user.fName ?? ""} ${user.lName ?? ""}`.trim();
+
+          await sendVerificationCodeEmail({
+            fullName,
+            userEmail: user.email,
+            verificationCode,
+            verificationLink,
+          });
+        } catch (mailErr) {
+          console.error("Failed to send verification email:", mailErr);
+        }
+
+        return res.status(403).json({
+          success: false,
+          message:
+            "Email not verified. Check your inbox/spam for the verification code.",
+          needVerification: true,
+        });
+      }
+
+      generateTokenAndSetCookie(res, user._id, "researcher");
+
+      // Update lastLoginAt
+      try {
+        await Researcher.updateOne(
+          { _id: user._id },
+          { $set: { lastLoginAt: new Date() } },
+        );
+      } catch (_) {}
+
+      const safeUser = { ...user };
+      delete safeUser.password;
+      delete safeUser.verificationToken;
+      delete safeUser.verificationTokenExpiresAt;
+
+      return res.status(200).json({
+        success: true,
+        message: "Login successful",
+        data: safeUser,
+      });
+    } catch (error) {
+      console.error("Researcher login error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
   // Login
   static async login(req, res) {
     try {
@@ -336,7 +437,7 @@ class AuthController {
           id: admin._id,
           email: admin.email,
           fullName: admin.fullName,
-          password: generatedPassword
+          password: generatedPassword,
         },
       });
     } catch (error) {
