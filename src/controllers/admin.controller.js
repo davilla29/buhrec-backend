@@ -171,7 +171,7 @@ class AdminController {
       // basic reviewer info
       const reviewers = await Reviewer.find()
         .select(
-          "fullName title isActive specialization institution photoUrl createdAt",
+          "fullName title email isActive specialization institution photoUrl createdAt",
         )
         .lean();
 
@@ -338,18 +338,46 @@ class AdminController {
         });
       }
 
-      // Prevent duplicates
-      const existing = await ReviewAssignment.findOne({
+      // 1. Check if there's any active assignment (anything NOT rejected)
+      const activeAssignment = await ReviewAssignment.findOne({
         proposal: proposal._id,
-        reviewer: reviewer._id,
+        status: { $ne: "rejected" }, // 'assigned', 'accepted', 'in_progress', 'submitted', etc.
       }).lean();
 
-      if (existing) {
+      if (activeAssignment) {
         return res.status(409).json({
           success: false,
-          message: "This reviewer is already assigned to this proposal",
+          message: `This proposal is currently assigned to someone else (Status: ${activeAssignment.status}). You can only assign a new reviewer if the previous reviewer rejected the assignment.`,
         });
       }
+
+      // 2. Prevent assigning it back to the SAME reviewer who rejected it
+      const previouslyRejected = await ReviewAssignment.findOne({
+        proposal: proposal._id,
+        reviewer: reviewer._id,
+        status: "rejected",
+      }).lean();
+
+      if (previouslyRejected) {
+        return res.status(409).json({
+          success: false,
+          message:
+            "This reviewer previously rejected this proposal. Please select a different reviewer.",
+        });
+      }
+
+      // // Prevent duplicates
+      // const existing = await ReviewAssignment.findOne({
+      //   proposal: proposal._id,
+      //   reviewer: reviewer._id,
+      // }).lean();
+
+      // if (existing) {
+      //   return res.status(409).json({
+      //     success: false,
+      //     message: "This reviewer is already assigned to this proposal",
+      //   });
+      // }
 
       // Create assignment
       const assignment = await ReviewAssignment.create({
