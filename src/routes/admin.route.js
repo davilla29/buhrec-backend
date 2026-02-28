@@ -12,6 +12,14 @@ router.get("/reviewers", verifyToken, isAdmin, AdminController.getAllReviewers);
 // Get all proposals
 router.get("/proposals", verifyToken, isAdmin, AdminController.getAllProposals);
 
+// Get all proposals
+router.get(
+  "/proposals/:proposalId/assignments",
+  verifyToken,
+  isAdmin,
+  AdminController.listProposalAssignments,
+);
+
 // Get reviewers by ID
 router.get(
   "/reviewers/:id",
