@@ -170,7 +170,9 @@ class AdminController {
     try {
       // basic reviewer info
       const reviewers = await Reviewer.find()
-        .select("fullName title isActive specialization institution photoUrl createdAt")
+        .select(
+          "fullName title isActive specialization institution photoUrl createdAt",
+        )
         .lean();
 
       // OPTIONAL: attach ongoing assignments count
@@ -270,6 +272,24 @@ class AdminController {
         success: false,
         message: "Server error",
       });
+    }
+  }
+
+  // Get all proposals
+  static async getAllProposals(req, res) {
+    try {
+      // Find all proposals matching the logged-in user's ID
+      // Sorting by updatedAt descending ensures the most recently modified ones appear first
+      const proposals = await Proposal.find().sort({ updatedAt: -1 }).lean();
+
+      return res.status(200).json({
+        success: true,
+        count: proposals.length,
+        proposals,
+      });
+    } catch (err) {
+      console.log("getAllProposals error:", err);
+      return res.status(500).json({ success: false, message: err.message });
     }
   }
 

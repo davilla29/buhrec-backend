@@ -9,6 +9,9 @@ const router = express.Router();
 // Get all reviewers
 router.get("/reviewers", verifyToken, isAdmin, AdminController.getAllReviewers);
 
+// Get all proposals
+router.get("/proposals", verifyToken, isAdmin, AdminController.getAllProposals);
+
 // Get reviewers by ID
 router.get(
   "/reviewers/:id",
