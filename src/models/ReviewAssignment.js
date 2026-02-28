@@ -25,6 +25,7 @@ const reviewAssignmentSchema = new mongoose.Schema(
     assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Administrator" },
     assignedAt: { type: Date, default: Date.now },
 
+    // Deadline given to the complete the review
     dueAt: { type: Date },
   },
   { timestamps: true },

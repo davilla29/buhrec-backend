@@ -20,7 +20,6 @@ const researcherSchema = new mongoose.Schema(
 
     password: { type: String, required: true, select: false },
 
-    // Matches UI
     institution: { type: String, required: true, trim: true },
     occupation: { type: String, required: true, trim: true },
 
