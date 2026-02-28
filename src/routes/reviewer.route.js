@@ -45,6 +45,12 @@ router.patch(
   ReviewerController.declineAssignment,
 );
 
+// Update profile details (fullName, institution, title, specialization)
+router.put("/profile", verifyToken, ReviewerController.updateProfile);
+
+// Update password (requires current password)
+router.put("/password", verifyToken, ReviewerController.updatePassword);
+
 // Viewing the proposal attached to a particular assignment
 router.get(
   "/assignments/:assignmentId/proposal",
