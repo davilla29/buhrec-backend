@@ -20,8 +20,11 @@ router.get(
   AdminController.listProposalAssignments,
 );
 
+// Get assignments list for the tabs
+router.get("/assignments/list", AdminController.getAssignmentsList);
+
 // Dashboard stats
-router.get("/dashboard", verifyToken, AdminController.getDashboardStats);
+router.get("/dashboard", AdminController.getDashboardStats);
 
 // Get reviewers by ID
 router.get(

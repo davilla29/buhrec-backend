@@ -546,7 +546,7 @@ class AdminController {
     }
   }
 
-  // View assignments for a proposal
+  // View assignments for a specific proposal
   static async listProposalAssignments(req, res) {
     try {
       const { proposalId } = req.params;
@@ -571,6 +571,65 @@ class AdminController {
       return res.status(200).json({ success: true, proposal, assignments });
     } catch (error) {
       console.error("listProposalAssignments error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+
+  // GET ALL ASSIGNMENTS
+  static async getAssignmentsList(req, res) {
+    try {
+      // filter can be 'unassigned', 'assigned', 'completed', or 'all'
+      const { filter = "all" } = req.query;
+      const fetchAll = filter === "all";
+
+      let responseData = {};
+
+      // 1. UNASSIGNED: Proposals waiting for a reviewer
+      // Fetching from Proposal model because no assignment exists yet
+      if (fetchAll || filter === "unassigned") {
+        const unassigned = await Proposal.find({
+          status: { $in: ["Paid", "Waiting to be assigned"] }, // Adjust statuses as needed
+        })
+          .populate("researcher", "fullName email")
+          .sort({ updatedAt: -1 })
+          .lean();
+
+        responseData.unassigned = unassigned;
+      }
+
+      // 2. ASSIGNED: Active ReviewAssignments
+      if (fetchAll || filter === "assigned") {
+        const assigned = await ReviewAssignment.find({
+          status: { $in: ["assigned", "accepted", "in_progress"] },
+        })
+          .populate("proposal", "title status applicationId")
+          .populate("reviewer", "fullName email photoUrl")
+          .sort({ assignedAt: -1 })
+          .lean();
+
+        responseData.assigned = assigned;
+      }
+
+      // 3. COMPLETED: Finished ReviewAssignments
+      if (fetchAll || filter === "completed") {
+        const completed = await ReviewAssignment.find({
+          status: "submitted",
+        })
+          .populate("proposal", "title status applicationId")
+          .populate("reviewer", "fullName email photoUrl")
+          .sort({ decidedAt: -1, updatedAt: -1 }) // Sort by when they made the decision
+          .lean();
+
+        responseData.completed = completed;
+      }
+
+      return res.status(200).json({
+        success: true,
+        // If 'all', return the grouped object. Otherwise, return just the requested array
+        data: fetchAll ? responseData : responseData[filter],
+      });
+    } catch (error) {
+      console.error("getAssignmentsList error:", error);
       return res.status(500).json({ success: false, message: "Server error" });
     }
   }
