@@ -91,6 +91,111 @@ function validateDraftRequirements(draft) {
 }
 
 class ResearcherController {
+  // ==========================================
+  // RESEARCHER DASHBOARD STATS
+  // ==========================================
+  static async getDashboardStats(req, res) {
+    try {
+      const userId = req.userId;
+
+      // Fetch all proposals for this researcher
+      const proposals = await Proposal.find({ researcher: userId }).lean();
+
+      // Define how we categorize statuses
+      const finalStatuses = ["Approved", "Rejected"];
+      const draftStatuses = ["Draft"];
+
+      let completedCount = 0;
+      let draftCount = 0;
+      let ongoingProposals = [];
+
+      // Categorize proposals
+      proposals.forEach((p) => {
+        if (finalStatuses.includes(p.status)) {
+          completedCount++;
+        } else if (draftStatuses.includes(p.status)) {
+          draftCount++;
+        } else {
+          // Anything else (Paid, Waiting to be assigned, Under Review, etc.) is ongoing
+          ongoingProposals.push(p);
+        }
+      });
+
+      // Sort ongoing proposals to find the most recently updated one
+      ongoingProposals.sort(
+        (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt),
+      );
+      const activeProposal =
+        ongoingProposals.length > 0 ? ongoingProposals[0] : null;
+
+      let timeline = [];
+
+      // Build the timeline array if there is an active proposal
+      if (activeProposal) {
+        // 1. Submission Event
+        if (activeProposal.submittedAt) {
+          timeline.push({
+            label: "Your proposal has submitted", // Matches UI wording
+            date: activeProposal.submittedAt,
+            isCurrent: false,
+          });
+        }
+
+        // 2. Assignment Event
+        if (activeProposal.assignedAt) {
+          timeline.push({
+            label: "Your proposal has been assigned to a reviewer",
+            date: activeProposal.assignedAt,
+            isCurrent: false,
+          });
+        }
+
+        // 3. Current Status Event
+        let currentStatusLabel = `Proposal status: ${activeProposal.status}`;
+        if (activeProposal.status === "Under Review") {
+          currentStatusLabel = "Your proposal is under review";
+        } else if (activeProposal.status === "Waiting to be assigned") {
+          currentStatusLabel = "Your proposal is waiting for a reviewer";
+        } else if (activeProposal.status === "Awaiting Modifications") {
+          currentStatusLabel = "Modifications requested for your proposal";
+        }
+
+        // Push the most recent status (ensuring we don't duplicate timestamps exactly)
+        timeline.push({
+          label: currentStatusLabel,
+          date: activeProposal.lastStatusChangedAt || activeProposal.updatedAt,
+          isCurrent: true, // Frontend can use this to color the dot blue
+        });
+
+        // Sort the timeline descending (newest event at index 0, like your UI)
+        timeline.sort((a, b) => new Date(b.date) - new Date(a.date));
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          stats: {
+            completedProposals: completedCount,
+            draftProposals: draftCount,
+            ongoingProposalStatus: activeProposal
+              ? activeProposal.status
+              : "None",
+          },
+          ongoingProposal: activeProposal
+            ? {
+                _id: activeProposal._id,
+                title: activeProposal.title,
+                timeline: timeline,
+              }
+            : null, // If null, the frontend can show "You have no ongoing proposals" text
+        },
+      });
+    } catch (error) {
+      console.error("getDashboardStats error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+
   static async createProposal(req, res) {
     try {
       const { title } = req.body;
