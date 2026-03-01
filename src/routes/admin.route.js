@@ -20,6 +20,9 @@ router.get(
   AdminController.listProposalAssignments,
 );
 
+// Dashboard stats
+router.get("/dashboard", verifyToken, AdminController.getDashboardStats);
+
 // Get reviewers by ID
 router.get(
   "/reviewers/:id",

@@ -36,6 +36,105 @@ async function emailExistsAnywhere(email) {
 }
 
 class AdminController {
+  // ==========================================
+  // ADMIN DASHBOARD STATS
+  // ==========================================
+  static async getDashboardStats(req, res) {
+    try {
+      const { timeframe } = req.query;
+
+      // 1. Calculate the date filter based on the requested timeframe
+      let startDate = new Date(0); // Default to beginning of time (all time)
+      const now = new Date();
+
+      if (timeframe === "this_week") {
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - 7);
+      } else if (timeframe === "this_month") {
+        startDate = new Date(now);
+        startDate.setMonth(now.getMonth() - 1);
+      } else if (timeframe === "last_3_months") {
+        startDate = new Date(now);
+        startDate.setMonth(now.getMonth() - 3);
+      } else if (timeframe === "last_6_months") {
+        startDate = new Date(now);
+        startDate.setMonth(now.getMonth() - 6);
+      }
+
+      const dateFilter = timeframe ? { createdAt: { $gte: startDate } } : {};
+
+      // 2. Query Proposal Statistics
+      // Unassigned: Proposals that are paid/submitted but waiting for a reviewer
+      const unassignedAssignmentsCount = await Proposal.countDocuments({
+        ...dateFilter,
+        status: "Waiting to be assigned",
+      });
+
+      // New Applications: All proposals submitted (not Draft or Awaiting Payment)
+      const newApplicationsCount = await Proposal.countDocuments({
+        ...dateFilter,
+        status: { $nin: ["Draft", "Awaiting Payment"] },
+      });
+
+      // UG / PG Submissions
+      // (Assuming you save 'category' on the Proposal model when submitting.
+      // If it's stored inside ProposalVersion formData, you will need an aggregation pipeline instead).
+      const ugSubmissionsCount = await Proposal.countDocuments({
+        ...dateFilter,
+        category: { $in: ["Undergraduate", "UG"] },
+        status: { $nin: ["Draft", "Awaiting Payment"] },
+      });
+
+      const pgSubmissionsCount = await Proposal.countDocuments({
+        ...dateFilter,
+        category: { $in: ["Postgraduate", "PG"] },
+        status: { $nin: ["Draft", "Awaiting Payment"] },
+      });
+
+      // 3. Query Assignment Statistics
+      // Assigned: Reviewer has it, but hasn't submitted a decision yet
+      const assignedAssignmentsCount = await ReviewAssignment.countDocuments({
+        ...dateFilter,
+        status: { $in: ["assigned", "accepted", "in_progress"] },
+      });
+
+      // Completed: Reviewer submitted their final decision
+      const completedAssignmentsCount = await ReviewAssignment.countDocuments({
+        ...dateFilter,
+        status: "submitted",
+      });
+
+      // Incomplete: Could mean assignments that were rejected/withdrawn, or proposals returned for modifications.
+      // We will count proposals currently "Awaiting Modifications" as incomplete.
+      const incompleteAssignmentsCount = await Proposal.countDocuments({
+        ...dateFilter,
+        status: "Awaiting Modifications",
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          topStats: {
+            unassignedAssignments: unassignedAssignmentsCount,
+            assignedAssignments: assignedAssignmentsCount,
+            completedAssignments: completedAssignmentsCount,
+            incompleteAssignments: incompleteAssignmentsCount,
+          },
+          applicationStats: {
+            ugSubmissions: ugSubmissionsCount,
+            pgSubmissions: pgSubmissionsCount,
+            newApplications: newApplicationsCount,
+          },
+          // For the bottom banner
+          unassignedBannerCount: unassignedAssignmentsCount,
+        },
+      });
+    } catch (error) {
+      console.error("Admin dashboard stats error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+
   static async addReviewer(req, res) {
     try {
       const {
