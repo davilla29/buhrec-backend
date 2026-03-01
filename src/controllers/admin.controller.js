@@ -166,6 +166,7 @@ class AdminController {
     }
   }
 
+  // To list all reviewers and the number of their ongoing assignment
   static async getAllReviewers(req, res) {
     try {
       // basic reviewer info
@@ -215,6 +216,7 @@ class AdminController {
     }
   }
 
+  // To get specific details about a reviewer
   static async getReviewerById(req, res) {
     try {
       const { id } = req.params;
@@ -474,6 +476,7 @@ class AdminController {
     }
   }
 
+  // To deactivate a reviewer
   static async deactivateReviewer(req, res) {
     try {
       const { id } = req.params;
@@ -505,6 +508,7 @@ class AdminController {
     }
   }
 
+  // To reactivate a reviewer
   static async reactivateReviewer(req, res) {
     try {
       const { id } = req.params;
@@ -536,7 +540,7 @@ class AdminController {
     }
   }
 
-  /* To handle a situation where a reviewer accepted the proposal but is taking too long and the admin needs to forcibly take it away from them and give it to someone else. */
+  // To handle a situation where a reviewer accepted the proposal but is taking too long and the admin needs to forcibly take it away from them and give it to someone else.
   static async reassignSingleAssignment(req, res) {
     try {
       const { assignmentId } = req.params;
