@@ -2,7 +2,7 @@
 import express from "express";
 import { verifyToken, isResearcher } from "../middlewares/auth.middleware.js";
 import { uploadProposalDocs } from "../middlewares/uploadProposalDocs.js";
-import ResearcherController  from "../controllers/researcher.controller.js";
+import ResearcherController from "../controllers/researcher.controller.js";
 
 const router = express.Router();
 
@@ -11,6 +11,9 @@ router.use(verifyToken, isResearcher);
 
 // Get all proposals for the logged-in researcher
 router.get("/proposals", ResearcherController.getAllProposals);
+
+// Dashboard Route
+router.get("/dashboard", ResearcherController.getDashboardStats);
 
 // Create proposal shell
 router.post("/create-proposal", ResearcherController.createProposal);
@@ -35,10 +38,16 @@ router.post(
 );
 
 // Submit initial version (v1) after paid
-router.post("/proposals/:proposalId/submit", ResearcherController.submitInitial);
+router.post(
+  "/proposals/:proposalId/submit",
+  ResearcherController.submitInitial,
+);
 
 // Versions + comments
-router.get("/proposals/:proposalId/versions", ResearcherController.listVersions);
+router.get(
+  "/proposals/:proposalId/versions",
+  ResearcherController.listVersions,
+);
 router.get(
   "/proposals/:proposalId/versions/:versionNumber/comments",
   ResearcherController.getVersionComments,

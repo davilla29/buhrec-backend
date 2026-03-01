@@ -3,6 +3,8 @@ import bcrypt from "bcryptjs";
 import { Researcher } from "../models/Researcher.js";
 import { Proposal } from "../models/Proposal.js";
 import { Reviewer } from "../models/Reviewer.js";
+import { ProposalVersion } from "../models/ProposalVersion.js";
+import { ReviewComment } from "../models/ReviewComment.js";
 import { ReviewAssignment } from "../models/ReviewAssignment.js";
 import { Administrator } from "../models/Administrator.js";
 import { sendAccountCreationEmail } from "../mail/emailService.js";
@@ -36,6 +38,212 @@ async function emailExistsAnywhere(email) {
 }
 
 class AdminController {
+  // ADMIN DASHBOARD STATS
+  static async getDashboardStats(req, res) {
+    try {
+      const { timeframe } = req.query;
+
+      // 1. Calculate the date filter based on the requested timeframe
+      let startDate = new Date(0); // Default to beginning of time (all time)
+      const now = new Date();
+
+      if (timeframe === "this_week") {
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - 7);
+      } else if (timeframe === "this_month") {
+        startDate = new Date(now);
+        startDate.setMonth(now.getMonth() - 1);
+      } else if (timeframe === "last_3_months") {
+        startDate = new Date(now);
+        startDate.setMonth(now.getMonth() - 3);
+      } else if (timeframe === "last_6_months") {
+        startDate = new Date(now);
+        startDate.setMonth(now.getMonth() - 6);
+      }
+
+      const dateFilter = timeframe ? { createdAt: { $gte: startDate } } : {};
+
+      // 2. Query Proposal Statistics
+      // Unassigned: Proposals that are paid/submitted but waiting for a reviewer
+      const unassignedAssignmentsCount = await Proposal.countDocuments({
+        ...dateFilter,
+        status: "Waiting to be assigned",
+      });
+
+      // New Applications: All proposals submitted (not Draft or Awaiting Payment)
+      const newApplicationsCount = await Proposal.countDocuments({
+        ...dateFilter,
+        status: { $nin: ["Draft", "Awaiting Payment"] },
+      });
+
+      // UG / PG Submissions
+      // (Assuming you save 'category' on the Proposal model when submitting.
+      // If it's stored inside ProposalVersion formData, you will need an aggregation pipeline instead).
+      const ugSubmissionsCount = await Proposal.countDocuments({
+        ...dateFilter,
+        category: { $in: ["Undergraduate", "UG"] },
+        status: { $nin: ["Draft", "Awaiting Payment"] },
+      });
+
+      const pgSubmissionsCount = await Proposal.countDocuments({
+        ...dateFilter,
+        category: { $in: ["Postgraduate", "PG"] },
+        status: { $nin: ["Draft", "Awaiting Payment"] },
+      });
+
+      // 3. Query Assignment Statistics
+      // Assigned: Reviewer has it, but hasn't submitted a decision yet
+      const assignedAssignmentsCount = await ReviewAssignment.countDocuments({
+        ...dateFilter,
+        status: { $in: ["assigned", "accepted", "in_progress"] },
+      });
+
+      // Completed: Reviewer submitted their final decision
+      const completedAssignmentsCount = await ReviewAssignment.countDocuments({
+        ...dateFilter,
+        status: "submitted",
+      });
+
+      // Incomplete: Could mean assignments that were rejected/withdrawn, or proposals returned for modifications.
+      // We will count proposals currently "Awaiting Modifications" as incomplete.
+      const incompleteAssignmentsCount = await Proposal.countDocuments({
+        ...dateFilter,
+        status: "Awaiting Modifications",
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          topStats: {
+            unassignedAssignments: unassignedAssignmentsCount,
+            assignedAssignments: assignedAssignmentsCount,
+            completedAssignments: completedAssignmentsCount,
+            incompleteAssignments: incompleteAssignmentsCount,
+          },
+          applicationStats: {
+            ugSubmissions: ugSubmissionsCount,
+            pgSubmissions: pgSubmissionsCount,
+            newApplications: newApplicationsCount,
+          },
+          // For the bottom banner
+          unassignedBannerCount: unassignedAssignmentsCount,
+        },
+      });
+    } catch (error) {
+      console.error("Admin dashboard stats error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+
+  // GET PROPOSAL DETAILS FOR ADMIN
+  static async getAdminProposalDetails(req, res) {
+    try {
+      const { proposalId } = req.params;
+
+      // 1. Fetch the basic proposal
+      const proposal = await Proposal.findById(proposalId)
+        .populate("researcher", "fullName email")
+        .lean();
+
+      if (!proposal) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Proposal not found" });
+      }
+
+      // 2. Fetch the active assignment (if any) to check if it's currently assigned
+      const activeAssignment = await ReviewAssignment.findOne({
+        proposal: proposalId,
+        status: { $in: ["assigned", "accepted", "in_progress"] },
+      })
+        .populate("reviewer", "fullName email photoUrl")
+        .lean();
+
+      // 3. Fetch the latest submitted version to display the actual text (Chapter 1, etc.)
+      const latestVersion = await ProposalVersion.findOne({
+        proposal: proposalId,
+        kind: "submitted",
+      })
+        .sort({ versionNumber: -1 })
+        .lean();
+
+      // 4. Count the comments if there is a submitted version
+      let commentCount = 0;
+      if (latestVersion) {
+        commentCount = await ReviewComment.countDocuments({
+          proposal: proposalId,
+          proposalVersion: latestVersion._id,
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          proposal,
+          activeAssignment: activeAssignment || null,
+          latestVersion: latestVersion || null,
+          commentCount,
+        },
+      });
+    } catch (error) {
+      console.error("getAdminProposalDetails error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+
+  // UNASSIGN AN ASSIGNMENT
+  static async unassignAssignment(req, res) {
+    try {
+      const { assignmentId } = req.params;
+
+      const assignment = await ReviewAssignment.findById(assignmentId);
+      if (!assignment) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Assignment not found" });
+      }
+
+      // Prevent unassigning if it's already done or cancelled
+      if (["submitted", "withdrawn", "rejected"].includes(assignment.status)) {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot unassign. Assignment is already marked as '${assignment.status}'`,
+        });
+      }
+
+      // 1. Mark assignment as withdrawn
+      assignment.status = "withdrawn";
+      await assignment.save();
+
+      // 2. Update the parent Proposal back to "Waiting to be assigned"
+      const proposal = await Proposal.findById(assignment.proposal);
+      if (proposal) {
+        proposal.status = "Waiting to be assigned";
+        // Unset the assigned date so it shows "No Assignment Date" on the frontend
+        proposal.assignedAt = undefined;
+        await proposal.save();
+      }
+
+      // 3. Notify the Reviewer that it was taken away
+      await NotificationController.createNotification({
+        title: "Assignment Withdrawn",
+        message: `The proposal "${proposal?.title || "you were assigned"}" has been unassigned from you by the administrator.`,
+        proposalId: assignment.proposal,
+        senderId: req.userId,
+        receiverId: assignment.reviewer,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message:
+          "Assignment successfully unassigned. It is now back in the Unassigned pool.",
+      });
+    } catch (error) {
+      console.error("unassignAssignment error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+
   static async addReviewer(req, res) {
     try {
       const {
@@ -166,6 +374,7 @@ class AdminController {
     }
   }
 
+  // To list all reviewers and the number of their ongoing assignment
   static async getAllReviewers(req, res) {
     try {
       // basic reviewer info
@@ -215,6 +424,7 @@ class AdminController {
     }
   }
 
+  // To get specific details about a reviewer
   static async getReviewerById(req, res) {
     try {
       const { id } = req.params;
@@ -290,6 +500,83 @@ class AdminController {
     } catch (err) {
       console.log("getAllProposals error:", err);
       return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  // GET PAYMENTS LIST (Admin View)
+  static async getPaymentsList(req, res) {
+    try {
+      // filter can be 'successful', 'pending', or 'all'
+      const { filter = "successful" } = req.query;
+
+      // 1. Build the query based on the requested tab
+      let matchQuery = {};
+      if (filter === "successful") {
+        matchQuery = { "payment.status": "paid" };
+      } else if (filter === "pending") {
+        matchQuery = { "payment.status": "pending" };
+      } else {
+        // If 'all', fetch everything that isn't completely 'unpaid'
+        matchQuery = {
+          "payment.status": { $in: ["paid", "pending", "failed"] },
+        };
+      }
+
+      // 2. Fetch data from DB
+      const proposalsWithPayments = await Proposal.find(matchQuery)
+        .populate("researcher", "fullName")
+        .select("applicationId feeAmount category payment updatedAt")
+        .sort({ "payment.paidAt": -1, updatedAt: -1 }) // Newest payments first
+        .lean();
+
+      // 3. Format the data perfectly for the React/Vue frontend table
+      const formattedPayments = proposalsWithPayments.map((p) => {
+        // Attempt to extract payment method from Flutterwave's raw response
+        let rawMethod = "Online";
+        if (p.payment?.raw?.data?.payment_type) {
+          rawMethod = p.payment.raw.data.payment_type;
+        } else if (p.payment?.raw?.payment_type) {
+          rawMethod = p.payment.raw.payment_type;
+        }
+
+        // Format payment method text (e.g., 'bank_transfer' -> 'Bank Transfer', 'card' -> 'Card Payment')
+        let formattedMethod = rawMethod
+          .split("_")
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(" ");
+
+        if (rawMethod === "card") formattedMethod = "Card Payment";
+
+        // Determine Level (UG/PG) based on category
+        let level = "N/A";
+        if (p.category) {
+          if (["Undergraduate", "UG"].includes(p.category)) level = "UG";
+          else if (["Postgraduate", "PG"].includes(p.category)) level = "PG";
+          else level = p.category;
+        }
+
+        // Return exact shape needed by the UI
+        return {
+          _id: p._id,
+          date: p.payment?.paidAt || p.updatedAt,
+          transactionId: p.payment?.txRef || "N/A",
+          applicationId: p.applicationId,
+          name: p.researcher?.fullName || "Unknown",
+          level: level,
+          amount: p.feeAmount,
+          status: p.payment?.status === "paid" ? "Successful" : "Pending",
+          paymentMethod: formattedMethod,
+        };
+      });
+
+      return res.status(200).json({
+        success: true,
+        count: formattedPayments.length,
+        data: formattedPayments,
+      });
+    } catch (error) {
+      console.error("getPaymentsList error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
     }
   }
 
@@ -445,7 +732,7 @@ class AdminController {
     }
   }
 
-  // View assignments for a proposal
+  // View assignments for a specific proposal
   static async listProposalAssignments(req, res) {
     try {
       const { proposalId } = req.params;
@@ -474,6 +761,66 @@ class AdminController {
     }
   }
 
+  // GET ALL ASSIGNMENTS
+  static async getAssignmentsList(req, res) {
+    try {
+      // filter can be 'unassigned', 'assigned', 'completed', or 'all'
+      const { filter = "all" } = req.query;
+      const fetchAll = filter === "all";
+
+      let responseData = {};
+
+      // 1. UNASSIGNED: Proposals waiting for a reviewer
+      // Fetching from Proposal model because no assignment exists yet
+      if (fetchAll || filter === "unassigned") {
+        const unassigned = await Proposal.find({
+          status: { $in: ["Paid", "Waiting to be assigned"] }, // Adjust statuses as needed
+        })
+          .populate("researcher", "fullName email")
+          .sort({ updatedAt: -1 })
+          .lean();
+
+        responseData.unassigned = unassigned;
+      }
+
+      // 2. ASSIGNED: Active ReviewAssignments
+      if (fetchAll || filter === "assigned") {
+        const assigned = await ReviewAssignment.find({
+          status: { $in: ["assigned", "accepted", "in_progress"] },
+        })
+          .populate("proposal", "title status applicationId")
+          .populate("reviewer", "fullName email photoUrl")
+          .sort({ assignedAt: -1 })
+          .lean();
+
+        responseData.assigned = assigned;
+      }
+
+      // 3. COMPLETED: Finished ReviewAssignments
+      if (fetchAll || filter === "completed") {
+        const completed = await ReviewAssignment.find({
+          status: "submitted",
+        })
+          .populate("proposal", "title status applicationId")
+          .populate("reviewer", "fullName email photoUrl")
+          .sort({ decidedAt: -1, updatedAt: -1 }) // Sort by when they made the decision
+          .lean();
+
+        responseData.completed = completed;
+      }
+
+      return res.status(200).json({
+        success: true,
+        // If 'all', return the grouped object. Otherwise, return just the requested array
+        data: fetchAll ? responseData : responseData[filter],
+      });
+    } catch (error) {
+      console.error("getAssignmentsList error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+
+  // To deactivate a reviewer
   static async deactivateReviewer(req, res) {
     try {
       const { id } = req.params;
@@ -505,6 +852,7 @@ class AdminController {
     }
   }
 
+  // To reactivate a reviewer
   static async reactivateReviewer(req, res) {
     try {
       const { id } = req.params;
@@ -536,7 +884,7 @@ class AdminController {
     }
   }
 
-  /* To handle a situation where a reviewer accepted the proposal but is taking too long and the admin needs to forcibly take it away from them and give it to someone else. */
+  // To handle a situation where a reviewer accepted the proposal but is taking too long and the admin needs to forcibly take it away from them and give it to someone else.
   static async reassignSingleAssignment(req, res) {
     try {
       const { assignmentId } = req.params;

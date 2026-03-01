@@ -20,12 +20,52 @@ router.get(
   AdminController.listProposalAssignments,
 );
 
+// Get assignments list for the tabs
+router.get(
+  "/assignments/list",
+  verifyToken,
+  isAdmin,
+  AdminController.getAssignmentsList,
+);
+
+// Dashboard stats
+router.get(
+  "/dashboard",
+  verifyToken,
+  isAdmin,
+  AdminController.getDashboardStats,
+);
+
+// Get applicant payments list (Supports ?filter=successful or ?filter=pending)
+router.get(
+  "/payments/list",
+  verifyToken,
+  isAdmin,
+  AdminController.getPaymentsList,
+);
+
 // Get reviewers by ID
 router.get(
   "/reviewers/:id",
   verifyToken,
   isAdmin,
   AdminController.getReviewerById,
+);
+
+// Get all details for a specific proposal for the admin view
+router.get(
+  "/proposals/:proposalId/details",
+  verifyToken,
+  isAdmin,
+  AdminController.getAdminProposalDetails,
+);
+
+// Unassign an active assignment 
+router.put(
+  "/assignments/:assignmentId/unassign",
+  verifyToken,
+  isAdmin,
+  AdminController.unassignAssignment,
 );
 
 router.post(
