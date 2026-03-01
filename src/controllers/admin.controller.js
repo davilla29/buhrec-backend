@@ -3,6 +3,8 @@ import bcrypt from "bcryptjs";
 import { Researcher } from "../models/Researcher.js";
 import { Proposal } from "../models/Proposal.js";
 import { Reviewer } from "../models/Reviewer.js";
+import { ProposalVersion } from "../models/ProposalVersion.js";
+import { ReviewComment } from "../models/ReviewComment.js";
 import { ReviewAssignment } from "../models/ReviewAssignment.js";
 import { Administrator } from "../models/Administrator.js";
 import { sendAccountCreationEmail } from "../mail/emailService.js";
@@ -36,9 +38,7 @@ async function emailExistsAnywhere(email) {
 }
 
 class AdminController {
-  // ==========================================
   // ADMIN DASHBOARD STATS
-  // ==========================================
   static async getDashboardStats(req, res) {
     try {
       const { timeframe } = req.query;
@@ -131,6 +131,63 @@ class AdminController {
       });
     } catch (error) {
       console.error("Admin dashboard stats error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+
+ 
+  // GET PROPOSAL DETAILS FOR ADMIN
+  static async getAdminProposalDetails(req, res) {
+    try {
+      const { proposalId } = req.params;
+
+      // 1. Fetch the basic proposal
+      const proposal = await Proposal.findById(proposalId)
+        .populate("researcher", "fullName email")
+        .lean();
+
+      if (!proposal) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Proposal not found" });
+      }
+
+      // 2. Fetch the active assignment (if any) to check if it's currently assigned
+      const activeAssignment = await ReviewAssignment.findOne({
+        proposal: proposalId,
+        status: { $in: ["assigned", "accepted", "in_progress"] },
+      })
+        .populate("reviewer", "fullName email photoUrl")
+        .lean();
+
+      // 3. Fetch the latest submitted version to display the actual text (Chapter 1, etc.)
+      const latestVersion = await ProposalVersion.findOne({
+        proposal: proposalId,
+        kind: "submitted",
+      })
+        .sort({ versionNumber: -1 })
+        .lean();
+
+      // 4. Count the comments if there is a submitted version
+      let commentCount = 0;
+      if (latestVersion) {
+        commentCount = await ReviewComment.countDocuments({
+          proposal: proposalId,
+          proposalVersion: latestVersion._id,
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          proposal,
+          activeAssignment: activeAssignment || null,
+          latestVersion: latestVersion || null,
+          commentCount,
+        },
+      });
+    } catch (error) {
+      console.error("getAdminProposalDetails error:", error);
       return res.status(500).json({ success: false, message: "Server error" });
     }
   }
