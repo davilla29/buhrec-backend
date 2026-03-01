@@ -26,6 +26,9 @@ router.get("/assignments/list", AdminController.getAssignmentsList);
 // Dashboard stats
 router.get("/dashboard", AdminController.getDashboardStats);
 
+// Get applicant payments list (Supports ?filter=successful or ?filter=pending)
+router.get("/payments/list", AdminController.getPaymentsList);
+
 // Get reviewers by ID
 router.get(
   "/reviewers/:id",
