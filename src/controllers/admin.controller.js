@@ -135,7 +135,6 @@ class AdminController {
     }
   }
 
- 
   // GET PROPOSAL DETAILS FOR ADMIN
   static async getAdminProposalDetails(req, res) {
     try {
@@ -188,6 +187,59 @@ class AdminController {
       });
     } catch (error) {
       console.error("getAdminProposalDetails error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+
+  // UNASSIGN AN ASSIGNMENT
+  static async unassignAssignment(req, res) {
+    try {
+      const { assignmentId } = req.params;
+
+      const assignment = await ReviewAssignment.findById(assignmentId);
+      if (!assignment) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Assignment not found" });
+      }
+
+      // Prevent unassigning if it's already done or cancelled
+      if (["submitted", "withdrawn", "rejected"].includes(assignment.status)) {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot unassign. Assignment is already marked as '${assignment.status}'`,
+        });
+      }
+
+      // 1. Mark assignment as withdrawn
+      assignment.status = "withdrawn";
+      await assignment.save();
+
+      // 2. Update the parent Proposal back to "Waiting to be assigned"
+      const proposal = await Proposal.findById(assignment.proposal);
+      if (proposal) {
+        proposal.status = "Waiting to be assigned";
+        // Unset the assigned date so it shows "No Assignment Date" on the frontend
+        proposal.assignedAt = undefined;
+        await proposal.save();
+      }
+
+      // 3. Notify the Reviewer that it was taken away
+      await NotificationController.createNotification({
+        title: "Assignment Withdrawn",
+        message: `The proposal "${proposal?.title || "you were assigned"}" has been unassigned from you by the administrator.`,
+        proposalId: assignment.proposal,
+        senderId: req.userId,
+        receiverId: assignment.reviewer,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message:
+          "Assignment successfully unassigned. It is now back in the Unassigned pool.",
+      });
+    } catch (error) {
+      console.error("unassignAssignment error:", error);
       return res.status(500).json({ success: false, message: "Server error" });
     }
   }
