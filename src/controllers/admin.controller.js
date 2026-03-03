@@ -79,16 +79,16 @@ class AdminController {
       // UG / PG Submissions
       // (Assuming you save 'category' on the Proposal model when submitting.
       // If it's stored inside ProposalVersion formData, you will need an aggregation pipeline instead).
-      const ugSubmissionsCount = await Proposal.countDocuments({
+      const ugSubmissionsCount = await ProposalVersion.countDocuments({
         ...dateFilter,
-        category: { $in: ["Undergraduate", "UG"] },
-        status: { $nin: ["Draft", "Awaiting Payment"] },
+        "formData.category": { $in: ["Undergraduate", "UG"] },
+        kind: "submitted", // only submitted versions count
       });
 
-      const pgSubmissionsCount = await Proposal.countDocuments({
+      const pgSubmissionsCount = await ProposalVersion.countDocuments({
         ...dateFilter,
-        category: { $in: ["Postgraduate", "PG"] },
-        status: { $nin: ["Draft", "Awaiting Payment"] },
+        "formData.category": { $in: ["Postgraduate", "PG"] },
+        kind: "submitted",
       });
 
       // 3. Query Assignment Statistics
