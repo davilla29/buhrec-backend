@@ -133,21 +133,30 @@ export const sendVerificationCodeEmail = async ({
   verificationCode,
   verificationLink,
 }) => {
+  const html = VERIFICATION_EMAIL_TEMPLATE({
+    userName: fullName,
+    verificationCode,
+    verificationLink,
+  });
   try {
-    const html = VERIFICATION_EMAIL_TEMPLATE({
-      userName: fullName,
-      verificationCode,
-      verificationLink,
+    const result = await mailjet.post("send", { version: "v3.1" }).request({
+      Messages: [
+        {
+          From: {
+            Email: process.env.MAIL_FROM,
+            Name: process.env.MAIL_FROM_NAME || "BUHREC",
+          },
+          To: [{ Email: userEmail, Name: fullName }],
+          Subject: "Verify Your Email Address",
+          HTMLPart: html,
+        },
+      ],
     });
 
-    await transporter.sendMail({
-      from: senderEmail,
-      to: userEmail,
-      subject: "Verify Your Email Address",
-      html,
-    });
+    return result.body;
   } catch (error) {
-    console.error("Error sending email:", error);
+    console.error("Mailjet API error:", err?.response?.data || err);
+    throw err;
   }
 };
 
@@ -157,20 +166,30 @@ export const sendNotificationEmail = async ({
   title,
   message,
 }) => {
+  const html = NOTIFICATION_EMAIL_TEMPLATE({
+    receiverName,
+    title,
+    message,
+  });
+
   try {
-    const html = NOTIFICATION_EMAIL_TEMPLATE({
-      receiverName,
-      title,
-      message,
+    const result = await mailjet.post("send", { version: "v3.1" }).request({
+      Messages: [
+        {
+          From: {
+            Email: process.env.MAIL_FROM,
+            Name: process.env.MAIL_FROM_NAME || "BUHREC",
+          },
+          To: [{ Email: receiverEmail, Name: receiverName }],
+          Subject: `New Notification: ${title}`,
+          HTMLPart: html,
+        },
+      ],
     });
 
-    await transporter.sendMail({
-      from: senderEmail,
-      to: receiverEmail,
-      subject: `New Notification: ${title}`,
-      html,
-    });
+    return result.body;
   } catch (error) {
-    console.error("Error sending notification email:", error);
+    console.error("Mailjet API error:", err?.response?.data || err);
+    throw err;
   }
 };
