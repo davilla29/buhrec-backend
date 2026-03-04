@@ -79,16 +79,16 @@ class AdminController {
       // UG / PG Submissions
       // (Assuming you save 'category' on the Proposal model when submitting.
       // If it's stored inside ProposalVersion formData, you will need an aggregation pipeline instead).
-      const ugSubmissionsCount = await Proposal.countDocuments({
+      const ugSubmissionsCount = await ProposalVersion.countDocuments({
         ...dateFilter,
-        category: { $in: ["Undergraduate", "UG"] },
-        status: { $nin: ["Draft", "Awaiting Payment"] },
+        "formData.category": { $in: ["Undergraduate", "UG"] },
+        kind: "submitted", // only submitted versions count
       });
 
-      const pgSubmissionsCount = await Proposal.countDocuments({
+      const pgSubmissionsCount = await ProposalVersion.countDocuments({
         ...dateFilter,
-        category: { $in: ["Postgraduate", "PG"] },
-        status: { $nin: ["Draft", "Awaiting Payment"] },
+        "formData.category": { $in: ["Postgraduate", "PG"] },
+        kind: "submitted",
       });
 
       // 3. Query Assignment Statistics
@@ -230,7 +230,9 @@ class AdminController {
         message: `The proposal "${proposal?.title || "you were assigned"}" has been unassigned from you by the administrator.`,
         proposalId: assignment.proposal,
         senderId: req.userId,
+        senderModel: "Administrator",
         receiverId: assignment.reviewer,
+        receiverModel: "Reviewer",
       });
 
       return res.status(200).json({
@@ -443,7 +445,7 @@ class AdminController {
       }
 
       // Assignment statistics
-      const stats = await Assignment.aggregate([
+      const stats = await ReviewAssignment.aggregate([
         {
           $match: { reviewer: reviewer._id },
         },
@@ -692,7 +694,9 @@ class AdminController {
         message: `You have been assigned to review the proposal "${proposal.title}". Please check your dashboard for details.`,
         proposalId: proposal._id,
         senderId: req.userId,
+        senderModel: "Administrator",
         receiverId: reviewer._id,
+        receiverModel: "Reviewer",
       });
 
       return res.status(201).json({
@@ -980,7 +984,9 @@ class AdminController {
         message: `You have been assigned to review a proposal. Please check your dashboard for details.`,
         proposalId: oldAssignment.proposal,
         senderId: req.userId,
+        senderModel: "Administrator",
         receiverId: newReviewerId,
+        receiverModel: "Reviewer",
       });
 
       // Optionally notify the old reviewer that it was taken away from them
@@ -990,7 +996,9 @@ class AdminController {
           message: `The proposal you were assigned to review has been withdrawn and reassigned by the administrator.`,
           proposalId: oldAssignment.proposal,
           senderId: req.userId,
+          senderModel: "Administrator",
           receiverId: oldAssignment.reviewer,
+          receiverModel: "Reviewer",
         });
       }
 
