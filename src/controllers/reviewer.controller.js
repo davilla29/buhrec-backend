@@ -549,7 +549,9 @@ class ReviewerController {
           message: message,
           proposalId: assignment.proposal._id,
           senderId: reviewerId, // the reviewer
+          senderModel: "Reviewer",
           receiverId: assignment.proposal.researcher, // the researcher
+          receiverModel: "Researcher",
         });
       }
 
