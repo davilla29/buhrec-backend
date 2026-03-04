@@ -7,6 +7,7 @@ const proposalSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Researcher",
       required: true,
+      unique: true,
       index: true,
     },
 

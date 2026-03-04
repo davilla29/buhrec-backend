@@ -199,6 +199,21 @@ class ResearcherController {
   static async createProposal(req, res) {
     try {
       const { title } = req.body;
+      const researcherId = req.user.id;
+
+      // Check if proposal already exists
+      const existingProposal = await Proposal.findOne({
+        researcher: researcherId,
+      });
+
+      if (existingProposal) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "You have already created a proposal. You can update it instead.",
+        });
+      }
+
       if (!title) {
         return res
           .status(400)
