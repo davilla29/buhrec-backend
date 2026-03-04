@@ -196,10 +196,44 @@ class ResearcherController {
     }
   }
 
+//  To get draft details for a specific proposal
+  static async getDraft(req, res) {
+    try {
+      const { proposalId } = req.params;
+
+      const proposal = await Proposal.findOne({
+        _id: proposalId,
+        researcher: req.userId,
+      });
+
+      if (!proposal) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Proposal not found" });
+      }
+
+      const draft = await ProposalVersion.findOne({
+        proposal: proposal._id,
+        versionNumber: 0,
+      });
+
+      if (!draft) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Draft not found" });
+      }
+
+      return res.status(200).json({ success: true, draft });
+    } catch (err) {
+      console.error("getDraft error:", err);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+
   static async createProposal(req, res) {
     try {
       const { title } = req.body;
-      const researcherId = req.user.id;
+      const researcherId = req.userId;
 
       // Check if proposal already exists
       const existingProposal = await Proposal.findOne({

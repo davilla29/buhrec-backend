@@ -12,6 +12,12 @@ router.use(verifyToken, isResearcher);
 // Get all proposals for the logged-in researcher
 router.get("/proposals", ResearcherController.getAllProposals);
 
+// Get details about specific proposal draft
+router.get(
+  "/proposals/:proposalId/draft",
+  ResearcherController.getDraft,
+);
+
 // Dashboard Route
 router.get("/dashboard", ResearcherController.getDashboardStats);
 
