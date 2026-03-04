@@ -443,7 +443,7 @@ class AdminController {
       }
 
       // Assignment statistics
-      const stats = await Assignment.aggregate([
+      const stats = await ReviewAssignment.aggregate([
         {
           $match: { reviewer: reviewer._id },
         },
