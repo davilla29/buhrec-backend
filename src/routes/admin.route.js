@@ -12,7 +12,7 @@ router.get("/reviewers", verifyToken, isAdmin, AdminController.getAllReviewers);
 // Get all proposals
 router.get("/proposals", verifyToken, isAdmin, AdminController.getAllProposals);
 
-// Get all proposals
+// Get all assignments for a particular proposal
 router.get(
   "/proposals/:proposalId/assignments",
   verifyToken,
@@ -60,7 +60,7 @@ router.get(
   AdminController.getAdminProposalDetails,
 );
 
-// Unassign an active assignment 
+// Unassign an active assignment
 router.put(
   "/assignments/:assignmentId/unassign",
   verifyToken,
