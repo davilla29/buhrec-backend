@@ -517,7 +517,9 @@ class ResearcherController {
           message: `Researcher has submitted a proposal titled "${proposal.title}" and it is awaiting assignment.`,
           proposalId: proposal._id,
           senderId: req.userId,
+          senderModel: "Researcher",
           receiverId: admin._id,
+          receiverModel: "Administrator",
         });
       }
 
@@ -854,7 +856,9 @@ class ResearcherController {
           message: `The researcher has submitted an updated version of the proposal "${proposal.title}". Please review the changes.`,
           proposalId: proposal._id,
           senderId: req.userId,
+          senderModel: "Researcher",
           receiverId: activeAssignment.reviewer,
+          receiverModel: "Reviewer",
         });
       }
 
