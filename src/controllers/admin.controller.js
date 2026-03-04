@@ -230,7 +230,9 @@ class AdminController {
         message: `The proposal "${proposal?.title || "you were assigned"}" has been unassigned from you by the administrator.`,
         proposalId: assignment.proposal,
         senderId: req.userId,
+        senderModel: "Administrator",
         receiverId: assignment.reviewer,
+        receiverModel: "Reviewer",
       });
 
       return res.status(200).json({
@@ -692,7 +694,9 @@ class AdminController {
         message: `You have been assigned to review the proposal "${proposal.title}". Please check your dashboard for details.`,
         proposalId: proposal._id,
         senderId: req.userId,
+        senderModel: "Administrator",
         receiverId: reviewer._id,
+        receiverModel: "Reviewer",
       });
 
       return res.status(201).json({
@@ -980,7 +984,9 @@ class AdminController {
         message: `You have been assigned to review a proposal. Please check your dashboard for details.`,
         proposalId: oldAssignment.proposal,
         senderId: req.userId,
+        senderModel: "Administrator",
         receiverId: newReviewerId,
+        receiverModel: "Reviewer",
       });
 
       // Optionally notify the old reviewer that it was taken away from them
@@ -990,7 +996,9 @@ class AdminController {
           message: `The proposal you were assigned to review has been withdrawn and reassigned by the administrator.`,
           proposalId: oldAssignment.proposal,
           senderId: req.userId,
+          senderModel: "Administrator",
           receiverId: oldAssignment.reviewer,
+          receiverModel: "Reviewer",
         });
       }
 
