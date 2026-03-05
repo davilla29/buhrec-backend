@@ -111,7 +111,7 @@ class NotificationController {
 
       return notification;
     } catch (error) {
-      throw new Error(error.message);
+      throw new Error(error);
     }
   }
 
@@ -119,7 +119,7 @@ class NotificationController {
   static async getMyNotifications(req, res) {
     try {
       const notifications = await Notification.find({
-        receiver: req.user.id,
+        receiver: req.userId,
       })
         .populate("proposalId", "title applicationId status")
         .sort({ createdAt: -1 });
