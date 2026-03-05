@@ -30,7 +30,7 @@ const documentSchema = new mongoose.Schema(
     _id: false,
     type: {
       type: String,
-      enum: ["applicationLetter", "proposalDocument"],
+      enum: ["applicationLetter", "proposalDocument", "turnItInReport"],
       required: true,
     },
     filename: { type: String, required: true },
