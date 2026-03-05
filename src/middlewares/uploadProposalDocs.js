@@ -28,4 +28,5 @@ export const uploadProposalDocs = multer({
 }).fields([
   { name: "applicationLetter", maxCount: 1 },
   { name: "proposalDocument", maxCount: 1 },
+  { name: "turnItInReport", maxCount: 1 },
 ]);

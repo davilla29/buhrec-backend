@@ -82,10 +82,15 @@ function validateDraftRequirements(draft) {
   const hasProposalDocument = draft.documents.some(
     (d) => d.type === "proposalDocument",
   );
+  const hasTurnItInReport = draft.documents.some(
+    (d) => d.type === "turnItInReport",
+  );
 
   if (!hasApplicationLetter) return "Application letter is required";
 
   if (!hasProposalDocument) return "Proposal document is required";
+
+  if (!hasTurnItInReport) return "Turn-it-in Report document is required";
 
   return null;
 }
@@ -196,7 +201,7 @@ class ResearcherController {
     }
   }
 
-//  To get draft details for a specific proposal
+  //  To get draft details for a specific proposal
   static async getDraft(req, res) {
     try {
       const { proposalId } = req.params;
