@@ -82,10 +82,15 @@ function validateDraftRequirements(draft) {
   const hasProposalDocument = draft.documents.some(
     (d) => d.type === "proposalDocument",
   );
+  const hasTurnItInReport = draft.documents.some(
+    (d) => d.type === "turnItInReport",
+  );
 
   if (!hasApplicationLetter) return "Application letter is required";
 
   if (!hasProposalDocument) return "Proposal document is required";
+
+  if (!hasTurnItInReport) return "Turn-it-in Report document is required";
 
   return null;
 }
