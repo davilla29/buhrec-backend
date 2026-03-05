@@ -201,7 +201,7 @@ class ResearcherController {
     }
   }
 
-//  To get draft details for a specific proposal
+  //  To get draft details for a specific proposal
   static async getDraft(req, res) {
     try {
       const { proposalId } = req.params;
