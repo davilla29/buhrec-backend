@@ -65,9 +65,10 @@ class AdminController {
 
       // 2. Query Proposal Statistics
       // Unassigned: Proposals that are paid/submitted but waiting for a reviewer
-      const unassignedAssignmentsCount = await ReviewAssignment.countDocuments({
+      const unassignedAssignmentsCount = await Proposal.countDocuments({
         ...dateFilter,
         status: "Waiting to be assigned",
+        // status: { $nin: ["withdrawn", "Waiting to be assigned"] },
       });
 
       // New Applications: All proposals submitted (not Draft or Awaiting Payment)
@@ -472,7 +473,7 @@ class AdminController {
         if (s._id === "accepted") statsMap.accepted = s.count;
         if (s._id === "completed") statsMap.completed = s.count;
         if (s._id === "incomplete") statsMap.incomplete = s.count;
-        if (s._id === "pending_feedback") statsMap.pendingFeedback = s.count;
+        if (s._id === "assigned") statsMap.pendingFeedback = s.count;
       });
 
       return res.status(200).json({
@@ -630,10 +631,10 @@ class AdminController {
         });
       }
 
-      // 1. Check if there's any active assignment (anything NOT rejected)
+      // 1. Check if there's any active assignment (anything NOT rejected or withdrawn)
       const activeAssignment = await ReviewAssignment.findOne({
         proposal: proposal._id,
-        status: { $ne: "rejected" }, // 'assigned', 'accepted', 'in_progress', 'submitted', etc.
+        status: { $nin: ["rejected", "withdrawn"] },
       }).lean();
 
       if (activeAssignment) {
@@ -781,7 +782,7 @@ class AdminController {
       // Fetching from Proposal model because no assignment exists yet
       if (fetchAll || filter === "unassigned") {
         const unassigned = await Proposal.find({
-          status: { $in: ["Paid"] }, // Adjust statuses as needed
+          status: { $in: ["Paid", "Waiting to be assigned"] }, // Adjust statuses as needed
         })
           .populate("researcher", "fullName email")
           .sort({ updatedAt: -1 })
