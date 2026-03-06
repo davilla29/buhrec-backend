@@ -64,7 +64,7 @@ class ReviewerController {
               incomplete: {
                 $sum: {
                   $cond: [
-                    { $in: ["$status", ["assigned", "in_progress"]] },
+                    { $in: ["$status", [ "in_progress"]] },
                     1,
                     0,
                   ],
