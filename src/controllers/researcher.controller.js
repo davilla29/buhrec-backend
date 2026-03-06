@@ -133,29 +133,33 @@ class ResearcherController {
       const activeProposal =
         ongoingProposals.length > 0 ? ongoingProposals[0] : null;
 
+      // Inside getDashboardStats in your controller
       let timeline = [];
 
-      // Build the timeline array if there is an active proposal
       if (activeProposal) {
-        // 1. Submission Event
+        // 1. Submission Milestone (Always first)
         if (activeProposal.submittedAt) {
           timeline.push({
-            label: "Your proposal has submitted", // Matches UI wording
+            label: "Your proposal has submitted",
             date: activeProposal.submittedAt,
             isCurrent: false,
           });
         }
 
-        // // 2. Assignment Event
-        // if (activeProposal.assignedAt) {
-        //   timeline.push({
-        //     label: "Your proposal has been assigned to a reviewer",
-        //     date: activeProposal.assignedAt,
-        //     isCurrent: false,
-        //   });
-        // }
+        // 2. Assignment Milestone
+        // Ensure your Proposal model has an 'assignedAt' field or logic for this
+        if (
+          activeProposal.assignedAt ||
+          activeProposal.status !== "Waiting to be assigned"
+        ) {
+          timeline.push({
+            label: "Your proposal has been assigned to a reviewer",
+            date: activeProposal.assignedAt || activeProposal.updatedAt,
+            isCurrent: false,
+          });
+        }
 
-        // 3. Current Status Event
+        // 3. Current Status Milestone
         let currentStatusLabel = `Proposal status: ${activeProposal.status}`;
         if (activeProposal.status === "Under Review") {
           currentStatusLabel = "Your proposal is under review";
@@ -165,15 +169,20 @@ class ResearcherController {
           currentStatusLabel = "Modifications requested for your proposal";
         }
 
-        // Push the most recent status (ensuring we don't duplicate timestamps exactly)
         timeline.push({
           label: currentStatusLabel,
           date: activeProposal.lastStatusChangedAt || activeProposal.updatedAt,
-          isCurrent: true, // Frontend can use this to color the dot blue
+          isCurrent: true,
         });
 
-        // Sort the timeline descending (newest event at index 0, like your UI)
+        // Sort Descending (Newest first)
         timeline.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        // Fix: Ensure ONLY the first (newest) item is marked as current
+        timeline = timeline.map((item, index) => ({
+          ...item,
+          isCurrent: index === 0,
+        }));
       }
 
       return res.status(200).json({
