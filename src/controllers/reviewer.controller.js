@@ -4,6 +4,8 @@ import { ReviewAssignment } from "../models/ReviewAssignment.js";
 import { Proposal } from "../models/Proposal.js";
 import { ProposalVersion } from "../models/ProposalVersion.js";
 import { ReviewComment } from "../models/ReviewComment.js";
+import { ReviewAssignment } from "../models/ReviewAssignment.js";
+import { Reviewer } from "../models/Reviewer.js";
 import NotificationController from "./notification.controller.js";
 
 function isValidObjectId(id) {
@@ -34,6 +36,81 @@ async function getLatestSubmittedVersion(proposalId) {
 }
 
 class ReviewerController {
+  // Get dashboard stats
+  static async getReviewerDashboard(req, res) {
+    try {
+      const reviewerId = req.userId;
+
+      // 1. Fetch Reviewer basic info
+      const reviewer = await Reviewer.findById(reviewerId).select("fullName");
+
+      if (!reviewer) {
+        return res.status(404).json({ message: "Reviewer not found" });
+      }
+
+      // 2. Run queries in parallel
+      const [statsData, recentAssignments] = await Promise.all([
+        // Aggregate stats based on status
+        ReviewAssignment.aggregate([
+          { $match: { reviewer: reviewer._id } },
+          {
+            $group: {
+              _id: null,
+              accepted: {
+                $sum: { $cond: [{ $eq: ["$status", "accepted"] }, 1, 0] },
+              },
+              completed: {
+                $sum: { $cond: [{ $eq: ["$status", "submitted"] }, 1, 0] },
+              },
+              incomplete: {
+                $sum: {
+                  $cond: [
+                    { $in: ["$status", ["assigned", "in_progress"]] },
+                    1,
+                    0,
+                  ],
+                },
+              },
+              // Logic for "Pending Feedback" (e.g., assignments needing review action)
+              pendingFeedback: {
+                $sum: { $cond: [{ $eq: ["$status", "assigned"] }, 1, 0] },
+              },
+            },
+          },
+        ]),
+
+        // Fetch the 3 most recent assignments and populate Proposal title
+        ReviewAssignment.find({ reviewer: reviewerId })
+          .populate("proposal", "title") // Assuming 'Proposal' model has a 'title' field
+          .sort({ createdAt: -1 })
+          .limit(3),
+      ]);
+
+      // Format stats (handle case where no assignments exist yet)
+      const stats = statsData[0] || {
+        accepted: 0,
+        completed: 0,
+        incomplete: 0,
+        pendingFeedback: 0,
+      };
+
+      res.status(200).json({
+        success: true,
+        user: { name: reviewer.fullName.split(" ")[0] }, // Just the first name for the "Welcome"
+        stats,
+        recentAssignments: recentAssignments.map((asm) => ({
+          id: asm._id,
+          title: asm.proposal?.title || "Untitled Proposal",
+          status: asm.status,
+          date: asm.createdAt,
+        })),
+      });
+    } catch (error) {
+      console.error("Dashboard Error:", error);
+      res.status(500).json({ message: "Server Error", error: error.message });
+    }
+  }
+
   /**
    * GET /reviewer/assignments
    * View assignments list

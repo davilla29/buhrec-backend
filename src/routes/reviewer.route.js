@@ -13,6 +13,8 @@ import ReviewerController from "../controllers/reviewer.controller.js";
 
 const router = express.Router();
 
+router.get("/dashboard", ReviewerController.getReviewerDashboard);
+
 // Getting all assignment
 router.get(
   "/assignments",
