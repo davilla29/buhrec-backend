@@ -512,63 +512,62 @@ class AdminController {
   // GET PAYMENTS LIST (Admin View)
   static async getPaymentsList(req, res) {
     try {
-      // filter can be 'successful', 'pending', or 'all'
       const { filter = "successful" } = req.query;
 
-      // 1. Build the query based on the requested tab
       let matchQuery = {};
       if (filter === "successful") {
         matchQuery = { "payment.status": "paid" };
       } else if (filter === "pending") {
         matchQuery = { "payment.status": "pending" };
       } else {
-        // If 'all', fetch everything that isn't completely 'unpaid'
         matchQuery = {
           "payment.status": { $in: ["paid", "pending", "failed"] },
         };
       }
 
-      // 2. Fetch data from DB
+      // Fetch proposals with currentVersion populated
       const proposalsWithPayments = await Proposal.find(matchQuery)
         .populate("researcher", "fullName")
-        .select("applicationId feeAmount category payment updatedAt")
-        .sort({ "payment.paidAt": -1, updatedAt: -1 }) // Newest payments first
+        .populate({
+          path: "currentVersion",
+          select: "formData", // we need the category
+        })
+        .select("applicationId feeAmount payment updatedAt currentVersion")
+        .sort({ "payment.paidAt": -1, updatedAt: -1 })
         .lean();
 
-      // 3. Format the data perfectly for the React/Vue frontend table
       const formattedPayments = proposalsWithPayments.map((p) => {
-        // Attempt to extract payment method from Flutterwave's raw response
+        // Payment method
         let rawMethod = "Online";
-        if (p.payment?.raw?.data?.payment_type) {
+        if (p.payment?.raw?.data?.payment_type)
           rawMethod = p.payment.raw.data.payment_type;
-        } else if (p.payment?.raw?.payment_type) {
+        else if (p.payment?.raw?.payment_type)
           rawMethod = p.payment.raw.payment_type;
-        }
 
-        // Format payment method text (e.g., 'bank_transfer' -> 'Bank Transfer', 'card' -> 'Card Payment')
         let formattedMethod = rawMethod
           .split("_")
-          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
           .join(" ");
-
         if (rawMethod === "card") formattedMethod = "Card Payment";
 
-        // Determine Level (UG/PG) based on category
+        // Level mapping from currentVersion.formData.category
         let level = "N/A";
-        if (p.category) {
-          if (["Undergraduate", "UG"].includes(p.category)) level = "UG";
-          else if (["Postgraduate", "PG"].includes(p.category)) level = "PG";
-          else level = p.category;
+        const cat = p.currentVersion?.formData?.category;
+        if (cat) {
+          if (["UG", "Undergraduate"].includes(cat)) level = "UG";
+          else if (["PG", "Postgraduate"].includes(cat)) level = "PG";
+          else if (cat === "Independent/Masters") level = "Masters";
+          else if (cat === "PhD") level = "PhD";
+          else level = cat;
         }
 
-        // Return exact shape needed by the UI
         return {
           _id: p._id,
           date: p.payment?.paidAt || p.updatedAt,
           transactionId: p.payment?.txRef || "N/A",
           applicationId: p.applicationId,
           name: p.researcher?.fullName || "Unknown",
-          level: level,
+          level,
           amount: p.feeAmount,
           status: p.payment?.status === "paid" ? "Successful" : "Pending",
           paymentMethod: formattedMethod,
