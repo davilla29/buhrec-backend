@@ -4,7 +4,6 @@ import { ReviewAssignment } from "../models/ReviewAssignment.js";
 import { Proposal } from "../models/Proposal.js";
 import { ProposalVersion } from "../models/ProposalVersion.js";
 import { ReviewComment } from "../models/ReviewComment.js";
-import { ReviewAssignment } from "../models/ReviewAssignment.js";
 import { Reviewer } from "../models/Reviewer.js";
 import NotificationController from "./notification.controller.js";
 
