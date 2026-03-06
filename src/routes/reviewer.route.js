@@ -13,7 +13,7 @@ import ReviewerController from "../controllers/reviewer.controller.js";
 
 const router = express.Router();
 
-router.get("/dashboard", ReviewerController.getReviewerDashboard);
+router.get("/dashboard",  verifyToken, isReviewer, ReviewerController.getReviewerDashboard);
 
 // Getting all assignment
 router.get(
