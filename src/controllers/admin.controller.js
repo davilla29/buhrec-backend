@@ -142,6 +142,10 @@ class AdminController {
 
       // 1. Fetch the basic proposal
       const proposal = await Proposal.findById(proposalId)
+        .populate({
+          path: "currentVersion",
+          select: "formData versionNumber kind",
+        })
         .populate("researcher", "fullName email")
         .lean();
 
