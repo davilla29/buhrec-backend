@@ -781,7 +781,7 @@ class AdminController {
       // Fetching from Proposal model because no assignment exists yet
       if (fetchAll || filter === "unassigned") {
         const unassigned = await Proposal.find({
-          status: { $in: ["Paid", "Waiting to be assigned"] }, // Adjust statuses as needed
+          status: { $in: ["Paid"] }, // Adjust statuses as needed
         })
           .populate("researcher", "fullName email")
           .sort({ updatedAt: -1 })
