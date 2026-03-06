@@ -65,7 +65,7 @@ class AdminController {
 
       // 2. Query Proposal Statistics
       // Unassigned: Proposals that are paid/submitted but waiting for a reviewer
-      const unassignedAssignmentsCount = await Proposal.countDocuments({
+      const unassignedAssignmentsCount = await ReviewAssignment.countDocuments({
         ...dateFilter,
         status: "Waiting to be assigned",
       });
@@ -338,7 +338,7 @@ class AdminController {
           ? process.env.FRONTEND_URL_DEV
           : process.env.FRONTEND_URL_PROD;
 
-      const loginLink = `${frontendUrl}/reviewer/login`;
+      const loginLink = `${frontendUrl}/login/reviewer`;
 
       // ✅ Email reviewer their account details
       try {

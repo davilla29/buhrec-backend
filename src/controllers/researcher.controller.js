@@ -146,14 +146,14 @@ class ResearcherController {
           });
         }
 
-        // 2. Assignment Event
-        if (activeProposal.assignedAt) {
-          timeline.push({
-            label: "Your proposal has been assigned to a reviewer",
-            date: activeProposal.assignedAt,
-            isCurrent: false,
-          });
-        }
+        // // 2. Assignment Event
+        // if (activeProposal.assignedAt) {
+        //   timeline.push({
+        //     label: "Your proposal has been assigned to a reviewer",
+        //     date: activeProposal.assignedAt,
+        //     isCurrent: false,
+        //   });
+        // }
 
         // 3. Current Status Event
         let currentStatusLabel = `Proposal status: ${activeProposal.status}`;
