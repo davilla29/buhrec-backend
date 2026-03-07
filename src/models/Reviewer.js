@@ -19,7 +19,12 @@ const reviewerSchema = new mongoose.Schema(
     institution: { type: String, required: true, trim: true },
 
     title: { type: String, required: true, trim: true }, // "Reviewer Title"
-    specialization: { type: String, required: true, trim: true }, // dropdown value
+    specialization: {
+      type: String,
+      required: true,
+      trim: true,
+      enum: ["Public Health & Epidemiology", "Clinical Research"],
+    },
     yearsOfExperience: { type: Number, required: true, min: 0 },
 
     // ✅ cloudinary photo fields

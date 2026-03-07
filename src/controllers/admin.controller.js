@@ -68,6 +68,7 @@ class AdminController {
       const unassignedAssignmentsCount = await Proposal.countDocuments({
         ...dateFilter,
         status: "Waiting to be assigned",
+        // status: { $nin: ["withdrawn", "Waiting to be assigned"] },
       });
 
       // New Applications: All proposals submitted (not Draft or Awaiting Payment)
@@ -338,7 +339,7 @@ class AdminController {
           ? process.env.FRONTEND_URL_DEV
           : process.env.FRONTEND_URL_PROD;
 
-      const loginLink = `${frontendUrl}/reviewer/login`;
+      const loginLink = `${frontendUrl}/login/reviewer`;
 
       // ✅ Email reviewer their account details
       try {
@@ -472,7 +473,7 @@ class AdminController {
         if (s._id === "accepted") statsMap.accepted = s.count;
         if (s._id === "completed") statsMap.completed = s.count;
         if (s._id === "incomplete") statsMap.incomplete = s.count;
-        if (s._id === "pending_feedback") statsMap.pendingFeedback = s.count;
+        if (s._id === "assigned") statsMap.pendingFeedback = s.count;
       });
 
       return res.status(200).json({
@@ -630,10 +631,10 @@ class AdminController {
         });
       }
 
-      // 1. Check if there's any active assignment (anything NOT rejected)
+      // 1. Check if there's any active assignment (anything NOT rejected or withdrawn)
       const activeAssignment = await ReviewAssignment.findOne({
         proposal: proposal._id,
-        status: { $ne: "rejected" }, // 'assigned', 'accepted', 'in_progress', 'submitted', etc.
+        status: { $nin: ["rejected", "withdrawn"] },
       }).lean();
 
       if (activeAssignment) {
