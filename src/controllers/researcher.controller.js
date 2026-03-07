@@ -230,7 +230,7 @@ class ResearcherController {
         proposal: proposal._id,
         versionNumber: 0,
       });
-      
+
       const status = proposal.status;
 
       if (!draft) {
@@ -599,20 +599,43 @@ class ResearcherController {
   // Get all proposals for the authenticated researcher
   static async getAllProposals(req, res) {
     try {
-      // Find all proposals matching the logged-in user's ID
-      // Sorting by updatedAt descending ensures the most recently modified ones appear first
+      // Find proposals belonging to the logged-in researcher
       const proposals = await Proposal.find({ researcher: req.userId })
+        .populate({
+          path: "lastStatusChangedBy",
+          select: "fullName", // ← corrected
+        })
         .sort({ updatedAt: -1 })
         .lean();
 
+      // Add reviewerName field
+      const formattedProposals = proposals.map((proposal) => {
+        let reviewerName = "Pending Assignment";
+
+        if (
+          proposal.status !== "Waiting to be assigned" &&
+          proposal.lastStatusChangedBy
+        ) {
+          reviewerName = proposal.lastStatusChangedBy.fullName;
+        }
+
+        return {
+          ...proposal,
+          reviewerName,
+        };
+      });
+
       return res.status(200).json({
         success: true,
-        count: proposals.length,
-        proposals,
+        count: formattedProposals.length,
+        proposals: formattedProposals,
       });
     } catch (err) {
       console.log("getAllProposals error:", err);
-      return res.status(500).json({ success: false, message: err.message });
+      return res.status(500).json({
+        success: false,
+        message: err.message,
+      });
     }
   }
 
