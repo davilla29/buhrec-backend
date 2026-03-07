@@ -230,14 +230,17 @@ class ResearcherController {
         proposal: proposal._id,
         versionNumber: 0,
       });
+      
+      const status = proposal.status;
 
       if (!draft) {
         return res
           .status(404)
           .json({ success: false, message: "Draft not found" });
       }
+      // console.log(draft);
 
-      return res.status(200).json({ success: true, draft });
+      return res.status(200).json({ success: true, draft, status });
     } catch (err) {
       console.error("getDraft error:", err);
       return res.status(500).json({ success: false, message: "Server error" });
@@ -436,7 +439,7 @@ class ResearcherController {
           .json({ success: false, message: "Save a draft first" });
       }
 
-      console.log(draft);
+      // console.log(draft);
 
       const requirementError = validateDraftRequirements(draft);
       if (requirementError) {
