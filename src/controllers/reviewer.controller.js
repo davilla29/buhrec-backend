@@ -63,11 +63,7 @@ class ReviewerController {
               },
               incomplete: {
                 $sum: {
-                  $cond: [
-                    { $in: ["$status", [ "in_progress"]] },
-                    1,
-                    0,
-                  ],
+                  $cond: [{ $in: ["$status", ["in_progress"]] }, 1, 0],
                 },
               },
               // Logic for "Pending Feedback" (e.g., assignments needing review action)
@@ -379,6 +375,11 @@ class ReviewerController {
           .json({ success: false, message: "Assignment not found" });
       }
 
+      // NEW: Fetch the proposal details to include in the response
+      const proposal = await Proposal.findById(assignment.proposal._id)
+        .select("title applicationId status")
+        .lean();
+
       if (!isValidObjectId(versionId)) {
         return res
           .status(400)
@@ -404,7 +405,9 @@ class ReviewerController {
         .sort({ createdAt: -1 })
         .lean();
 
-      return res.status(200).json({ success: true, version, comments });
+      return res
+        .status(200)
+        .json({ success: true, proposal, version, comments });
     } catch (error) {
       console.log("getVersionForReview error:", error);
       return res.status(500).json({ success: false, message: error.message });
@@ -419,7 +422,7 @@ class ReviewerController {
 
       const {
         proposalVersionId,
-        message,
+        comment: commentText,
         fieldPath = "",
         severity = "minor",
         requestsChange = false,
@@ -431,7 +434,7 @@ class ReviewerController {
           message: "proposalVersionId is required",
         });
       }
-      if (!message || !String(message).trim()) {
+      if (!commentText || !String(commentText).trim()) {
         return res
           .status(400)
           .json({ success: false, message: "message is required" });
@@ -475,13 +478,13 @@ class ReviewerController {
         await assignment.save();
       }
 
-      const comment = await ReviewComment.create({
+      const newComment = await ReviewComment.create({
         proposal: assignment.proposal._id,
         proposalVersion: version._id,
         assignment: assignment._id,
         reviewer: reviewerId,
         fieldPath: String(fieldPath || "").trim(),
-        message: String(message).trim(),
+        comment: String(commentText).trim(),
         severity,
         requestsChange: Boolean(requestsChange),
         isVisibleToResearcher: true,
@@ -489,7 +492,7 @@ class ReviewerController {
 
       return res
         .status(201)
-        .json({ success: true, message: "Comment added", comment });
+        .json({ success: true, message: "Comment added", newComment });
     } catch (error) {
       console.log("addComment error:", error);
       return res.status(500).json({ success: false, message: error.message });
@@ -729,6 +732,38 @@ class ReviewerController {
       });
     } catch (error) {
       console.error("Update reviewer password error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+
+  static async getResponses(req, res) {
+    try {
+      const reviewerId = req.userId;
+
+      // 1. Find all active assignments for this reviewer
+      const activeAssignments = await ReviewAssignment.find({
+        reviewer: reviewerId,
+        status: { $in: ["accepted", "in_progress"] },
+      }).select("proposal");
+
+      const proposalIds = activeAssignments.map((a) => a.proposal);
+
+      // 2. Filter proposals that are back in "Under Review"
+      // but have a versionCount > 1 (meaning they were updated)
+      const responses = await Proposal.find({
+        _id: { $in: proposalIds },
+        status: "Under Review",
+        versionCount: { $gt: 1 },
+        lastStatusChangedBy: reviewerId, // Ensures YOU were the one who asked for the changes
+      }).sort({ updatedAt: -1 });
+
+      return res.status(200).json({
+        success: true,
+        count: responses.length,
+        responses,
+      });
+    } catch (error) {
+      console.error("getResponses error:", error);
       return res.status(500).json({ success: false, message: "Server error" });
     }
   }
