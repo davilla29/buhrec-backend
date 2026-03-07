@@ -11,7 +11,10 @@ import notificationRoutes from "./routes/notification.route.js";
 
 const app = express();
 
-const allowedOrigins = ["http://localhost:5173"];
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://buhrec-system.vercel.app",
+];
 
 // Middleware
 app.use(
