@@ -375,6 +375,11 @@ class ReviewerController {
           .json({ success: false, message: "Assignment not found" });
       }
 
+      // NEW: Fetch the proposal details to include in the response
+      const proposal = await Proposal.findById(assignment.proposal._id)
+        .select("title applicationId status")
+        .lean();
+
       if (!isValidObjectId(versionId)) {
         return res
           .status(400)
@@ -400,7 +405,9 @@ class ReviewerController {
         .sort({ createdAt: -1 })
         .lean();
 
-      return res.status(200).json({ success: true, version, comments });
+      return res
+        .status(200)
+        .json({ success: true, proposal, version, comments });
     } catch (error) {
       console.log("getVersionForReview error:", error);
       return res.status(500).json({ success: false, message: error.message });
