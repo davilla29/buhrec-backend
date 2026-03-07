@@ -95,6 +95,23 @@ function validateDraftRequirements(draft) {
   return null;
 }
 
+function validateUpdateSubmission(files, body) {
+  const { changeNote } = body;
+
+  // 1. Ensure they actually explained what they changed
+  if (!changeNote || changeNote.trim().length < 5) {
+    return "Please provide a more detailed change note (at least 5 characters).";
+  }
+
+  // 2. Ensure they uploaded the primary document being revised
+  // Usually, "Awaiting Modifications" implies the PDF/Word proposal needs a fix.
+  if (!files || !files.proposalDocument) {
+    return "You must upload the revised Proposal Document.";
+  }
+
+  return null;
+}
+
 class ResearcherController {
   // ==========================================
   // RESEARCHER DASHBOARD STATS
@@ -686,6 +703,8 @@ class ResearcherController {
           status: proposal.status,
           currentVersion: proposal.currentVersion,
           versionCount: proposal.versionCount,
+          assignedAt: proposal.assignedAt,
+          submittedAt: proposal.submittedAt,
         },
         versions: enriched,
       });
@@ -850,7 +869,13 @@ class ResearcherController {
   static async submitUpdatedVersion(req, res) {
     try {
       const { proposalId } = req.params;
-      const { formData, changeNote } = req.body;
+      const { formData, changeNote } = req.body; // Ensure these are destructured
+
+      // 1. Run Validation First
+      const error = validateUpdateSubmission(req.files, req.body);
+      if (error) {
+        return res.status(400).json({ success: false, message: error });
+      }
 
       const proposal = await Proposal.findOne({
         _id: proposalId,
@@ -870,13 +895,7 @@ class ResearcherController {
         });
       }
 
-      if (!changeNote || changeNote.trim().length < 3) {
-        return res.status(400).json({
-          success: false,
-          message: "changeNote is required (briefly explain what you changed)",
-        });
-      }
-
+      // 2. Document Handling: Carry over files from the previous version
       const previousVersion = await ProposalVersion.findOne({
         proposal: proposal._id,
         versionNumber: proposal.versionCount,
@@ -886,63 +905,69 @@ class ResearcherController {
         ? [...previousVersion.documents]
         : [];
       const incomingFiles = req.files || {};
-      const newFileTypes = Object.keys(incomingFiles);
+      const nextVersionNumber = proposal.versionCount + 1;
 
-      for (const type of newFileTypes) {
-        const existingDocIndex = mergedDocuments.findIndex(
-          (d) => d.type === type,
-        );
-        if (existingDocIndex !== -1) {
-          mergedDocuments.splice(existingDocIndex, 1);
-        }
-      }
-
+      // Upload only the NEW files (usually just the proposalDocument)
       const uploaded = await uploadFilesToStorage(incomingFiles, {
         proposalId: proposal._id.toString(),
-        versionTag: `v${proposal.versionCount + 1}`,
+        versionTag: `v${nextVersionNumber}`,
       });
 
-      mergedDocuments = [...mergedDocuments, ...uploaded];
+      // Replace the specific file types in the merged array
+      for (const newFile of uploaded) {
+        const existingIndex = mergedDocuments.findIndex(
+          (d) => d.type === newFile.type,
+        );
+        if (existingIndex !== -1) {
+          mergedDocuments[existingIndex] = newFile;
+        } else {
+          mergedDocuments.push(newFile);
+        }
+      }
 
       const parsedFormData =
         typeof formData === "string" ? JSON.parse(formData) : formData;
 
-      const nextVersionNumber = proposal.versionCount + 1;
-
+      // 3. Create the New Version
       const newV = await ProposalVersion.create({
         proposal: proposal._id,
         versionNumber: nextVersionNumber,
         kind: "submitted",
         formData: parsedFormData,
-        documents: mergedDocuments, // Use merged array
+        documents: mergedDocuments,
         changeNote,
         createdBy: req.userId,
         submittedAt: new Date(),
       });
 
-      // Check if there is an "active" assignment for this proposal
+      // 4. Update the Review Assignment State
+      // We look for the assignment that was likely "submitted" by the reviewer
       const activeAssignment = await ReviewAssignment.findOne({
         proposal: proposal._id,
-        status: { $in: ["assigned", "accepted", "in_progress"] },
-      })
-        .select("_id status reviewer")
-        .lean();
+        // We check for any status that isn't 'rejected' or 'withdrawn'
+        status: { $in: ["assigned", "accepted", "in_progress", "submitted"] },
+      });
 
-      // Update proposal pointers + status based
+      if (activeAssignment) {
+        // Transition the reviewer back to 'in_progress' so they know to look at the new version
+        activeAssignment.status = "in_progress";
+        await activeAssignment.save();
+      }
+
+      // 5. Update Proposal Shell
       proposal.currentVersion = newV._id;
       proposal.versionCount = nextVersionNumber;
-
       proposal.status = activeAssignment
         ? "Under Review"
         : "Waiting to be assigned";
 
       await proposal.save();
 
-      // Notify assigned reviewer if proposal is still actively assigned
+      // 6. Notify Reviewer
       if (activeAssignment) {
         await NotificationController.createNotification({
           title: "Updated Proposal Submitted",
-          message: `The researcher has submitted an updated version of the proposal "${proposal.title}". Please review the changes.`,
+          message: `The researcher has submitted v${nextVersionNumber} of "${proposal.title}". It is now ready for your re-review.`,
           proposalId: proposal._id,
           senderId: req.userId,
           senderModel: "Researcher",
@@ -955,11 +980,10 @@ class ResearcherController {
         success: true,
         proposal,
         version: newV,
-        hasActiveAssignment: Boolean(activeAssignment),
-        assignmentStatus: activeAssignment?.status || null,
+        assignmentStatus: activeAssignment?.status || "none",
       });
     } catch (err) {
-      console.log("submitUpdatedVersion error:", err);
+      console.error("submitUpdatedVersion error:", err);
       return res.status(500).json({ success: false, message: err.message });
     }
   }

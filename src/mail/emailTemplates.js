@@ -213,6 +213,7 @@ export const ACCOUNT_CREATION_EMAIL_TEMPLATE = ({
 
 export const NOTIFICATION_EMAIL_TEMPLATE = ({
   receiverName,
+  receiverTitle,
   title,
   message,
 }) => `
@@ -247,7 +248,7 @@ export const NOTIFICATION_EMAIL_TEMPLATE = ({
   ">
 
     <p style="color:#334155; font-size:0.95rem;">
-      Hello <strong>${receiverName}</strong>,
+      Hello <strong> ${receiverTitle} ${receiverName}</strong>,
     </p>
 
     <p style="color:#334155; font-size:0.95rem; line-height:1.6;">
