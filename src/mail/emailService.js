@@ -163,11 +163,13 @@ export const sendVerificationCodeEmail = async ({
 export const sendNotificationEmail = async ({
   receiverEmail,
   receiverName,
+  receiverTitle,
   title,
   message,
 }) => {
   const html = NOTIFICATION_EMAIL_TEMPLATE({
     receiverName,
+    receiverTitle,
     title,
     message,
   });
