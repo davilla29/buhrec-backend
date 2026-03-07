@@ -341,7 +341,7 @@ class AdminController {
 
       const loginLink = `${frontendUrl}/login/reviewer`;
 
-      // ✅ Email reviewer their account details
+      // Email reviewer their account details
       try {
         await sendAccountCreationEmail({
           fullName: reviewer.fullName,
