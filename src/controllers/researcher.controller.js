@@ -316,7 +316,7 @@ class ResearcherController {
       }
 
       // 2. Lock check
-      const lockedStatuses = ["Under Review", "Approved", "Rejected"];
+      const lockedStatuses = ["Under Review", "Paid", "Approved", "Rejected"];
       if (lockedStatuses.includes(proposal.status)) {
         return res.status(400).json({
           success: false,
