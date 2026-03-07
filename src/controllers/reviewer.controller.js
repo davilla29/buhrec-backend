@@ -728,6 +728,38 @@ class ReviewerController {
       return res.status(500).json({ success: false, message: "Server error" });
     }
   }
+
+  static async getResponses(req, res) {
+    try {
+      const reviewerId = req.userId;
+
+      // 1. Find all active assignments for this reviewer
+      const activeAssignments = await ReviewAssignment.find({
+        reviewer: reviewerId,
+        status: { $in: ["accepted", "in_progress"] },
+      }).select("proposal");
+
+      const proposalIds = activeAssignments.map((a) => a.proposal);
+
+      // 2. Filter proposals that are back in "Under Review"
+      // but have a versionCount > 1 (meaning they were updated)
+      const responses = await Proposal.find({
+        _id: { $in: proposalIds },
+        status: "Under Review",
+        versionCount: { $gt: 1 },
+        lastStatusChangedBy: reviewerId, // Ensures YOU were the one who asked for the changes
+      }).sort({ updatedAt: -1 });
+
+      return res.status(200).json({
+        success: true,
+        count: responses.length,
+        responses,
+      });
+    } catch (error) {
+      console.error("getResponses error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
 }
 
 export default ReviewerController;
