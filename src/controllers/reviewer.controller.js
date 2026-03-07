@@ -63,11 +63,7 @@ class ReviewerController {
               },
               incomplete: {
                 $sum: {
-                  $cond: [
-                    { $in: ["$status", [ "in_progress"]] },
-                    1,
-                    0,
-                  ],
+                  $cond: [{ $in: ["$status", ["in_progress"]] }, 1, 0],
                 },
               },
               // Logic for "Pending Feedback" (e.g., assignments needing review action)
@@ -419,7 +415,7 @@ class ReviewerController {
 
       const {
         proposalVersionId,
-        message,
+        comment: commentText,
         fieldPath = "",
         severity = "minor",
         requestsChange = false,
@@ -431,7 +427,7 @@ class ReviewerController {
           message: "proposalVersionId is required",
         });
       }
-      if (!message || !String(message).trim()) {
+      if (!commentText || !String(commentText).trim()) {
         return res
           .status(400)
           .json({ success: false, message: "message is required" });
@@ -475,13 +471,13 @@ class ReviewerController {
         await assignment.save();
       }
 
-      const comment = await ReviewComment.create({
+      const newComment = await ReviewComment.create({
         proposal: assignment.proposal._id,
         proposalVersion: version._id,
         assignment: assignment._id,
         reviewer: reviewerId,
         fieldPath: String(fieldPath || "").trim(),
-        message: String(message).trim(),
+        comment: String(commentText).trim(),
         severity,
         requestsChange: Boolean(requestsChange),
         isVisibleToResearcher: true,
@@ -489,7 +485,7 @@ class ReviewerController {
 
       return res
         .status(201)
-        .json({ success: true, message: "Comment added", comment });
+        .json({ success: true, message: "Comment added", newComment });
     } catch (error) {
       console.log("addComment error:", error);
       return res.status(500).json({ success: false, message: error.message });
