@@ -104,6 +104,7 @@ class NotificationController {
         await sendNotificationEmail({
           receiverEmail: receiver.email,
           receiverName: receiver.fullName || "User",
+          receiverTitle: receiver.title || "",
           title,
           message,
         });
