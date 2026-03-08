@@ -407,7 +407,7 @@ class ReviewerController {
 
       return res
         .status(200)
-        .json({ success: true, proposal, version, comments });
+        .json({ success: true, proposal, version, comments, assignment });
     } catch (error) {
       console.log("getVersionForReview error:", error);
       return res.status(500).json({ success: false, message: error.message });
@@ -867,6 +867,39 @@ class ReviewerController {
       return res.status(500).json({ success: false, message: "Server error" });
     }
   }
+
+  // static async getResponses(req, res) {
+  //   try {
+  //     const reviewerId = req.userId;
+
+  //     // 1. Find assignments for this reviewer that are active or completed.
+  //     // Added "submitted" to include assignments you've already made a final decision on.
+  //     const assignments = await ReviewAssignment.find({
+  //       reviewer: reviewerId,
+  //       status: { $in: ["accepted", "in_progress", "submitted"] },
+  //     }).select("proposal");
+
+  //     const proposalIds = assignments.map((a) => a.proposal);
+
+  //     // 2. Filter proposals that have a versionCount > 1 (meaning they were updated)
+  //     // Removed the strict 'status: "Under Review"' filter to show all historical responses.
+  //     const responses = await Proposal.find({
+  //       _id: { $in: proposalIds },
+  //       versionCount: { $gt: 1 },
+  //       lastStatusChangedBy: reviewerId, // Ensures YOU were the one who interacted with it
+  //     }).sort({ updatedAt: -1 });
+
+  //     return res.status(200).json({
+  //       success: true,
+  //       count: responses.length,
+  //       responses,
+  //     });
+  //   } catch (error) {
+  //     console.error("getResponses error:", error);
+  //     return res.status(500).json({ success: false, message: "Server error" });
+  //   }
+  // }
 }
+
 
 export default ReviewerController;
