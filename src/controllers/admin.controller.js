@@ -1039,22 +1039,22 @@ class AdminController {
 
         const completed = myProposals.filter(
           (p) =>
-            p.status === "approved" ||
-            p.status === "rejected" ||
+            p.status === "Approved" ||
+            p.status === "Rejected" ||
             p.status === "Completed",
         ).length;
 
         const ongoing = myProposals.find(
           (p) =>
             p.status === "Ongoing" ||
-            p.status === "under review" ||
-            p.status === "awaiting modifications",
+            p.status === "Under Review" ||
+            p.status === "Awaiting Modifications",
         );
 
         return {
           ...researcher,
           id: researcher._id,
-          name: researcher.fullName, // Map DB fields to frontend expectations
+          name: researcher.fullName,
           department: researcher.department || "General",
           completed: completed,
           ongoingStatus: ongoing ? ongoing.status : "Not Started",
