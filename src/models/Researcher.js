@@ -29,6 +29,9 @@ const researcherSchema = new mongoose.Schema(
     verificationTokenExpiresAt: { type: Date, select: false },
 
     role: { type: String, default: "researcher", immutable: true },
+    // ✅ cloudinary photo fields
+    photoUrl: { type: String, default: "" },
+    photoPublicId: { type: String, default: "" },
 
     isActive: { type: Boolean, default: true },
     lastLoginAt: { type: Date },
