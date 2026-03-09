@@ -6,6 +6,22 @@ import { verifyToken, isAdmin } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
+// Get all registered researchers
+router.get(
+  "/researchers",
+  verifyToken,
+  isAdmin,
+  AdminController.getAllResearchers,
+);
+
+// Get proposals for a specific researcher
+router.get(
+  "/researchers/:researcherId/proposals",
+  verifyToken,
+  isAdmin,
+  AdminController.getProposalsByResearcher,
+);
+
 // Get all reviewers
 router.get("/reviewers", verifyToken, isAdmin, AdminController.getAllReviewers);
 

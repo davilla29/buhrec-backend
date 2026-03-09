@@ -1023,6 +1023,67 @@ class AdminController {
       });
     }
   }
+
+  // Get all registered researchers with their statistics
+  static async getAllResearchers(req, res) {
+    try {
+      const researchers = await Researcher.find().select("-password").lean();
+
+      // Fetch all proposals to calculate stats per researcher
+      const allProposals = await Proposal.find().lean();
+
+      const enrichedResearchers = researchers.map((researcher) => {
+        const myProposals = allProposals.filter(
+          (p) => p.researcher?.toString() === researcher._id.toString(),
+        );
+
+        const completed = myProposals.filter(
+          (p) =>
+            p.status === "Approved" ||
+            p.status === "Rejected" ||
+            p.status === "Completed",
+        ).length;
+
+        const ongoing = myProposals.find(
+          (p) =>
+            p.status === "Ongoing" ||
+            p.status === "Under Review" ||
+            p.status === "Awaiting Modifications",
+        );
+
+        return {
+          ...researcher,
+          id: researcher._id,
+          name: researcher.fullName,
+          department: researcher.department || "General",
+          completed: completed,
+          ongoingStatus: ongoing ? ongoing.status : "Not Started",
+        };
+      });
+
+      return res.status(200).json({ success: true, data: enrichedResearchers });
+    } catch (error) {
+      console.error("Get all researchers error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+
+  // Get proposals for a specific researcher
+  static async getProposalsByResearcher(req, res) {
+    try {
+      const { researcherId } = req.params;
+
+      const proposals = await Proposal.find({ researcher: researcherId })
+        .populate("researcher", "fullName photoUrl")
+        .sort({ updatedAt: -1 })
+        .lean();
+
+      return res.status(200).json({ success: true, data: proposals });
+    } catch (error) {
+      console.error("Get researcher proposals error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
 }
 
 export default AdminController;
