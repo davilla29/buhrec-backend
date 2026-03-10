@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
+import mongoose from "mongoose";
 import { Researcher } from "../models/Researcher.js";
 import { Proposal } from "../models/Proposal.js";
 import { Reviewer } from "../models/Reviewer.js";
@@ -436,6 +437,7 @@ class AdminController {
     try {
       const { id } = req.params;
 
+      // 1. Fetch Reviewer with all fields expected by the Modal
       const reviewer = await Reviewer.findById(id)
         .select(
           "fullName email title specialization institution yearsOfExperience photoUrl isActive createdAt",
@@ -449,10 +451,11 @@ class AdminController {
         });
       }
 
-      // Assignment statistics
+      // 2. Assignment statistics aggregation
+      // Using new mongoose.Types.ObjectId guarantees the aggregate $match works
       const stats = await ReviewAssignment.aggregate([
         {
-          $match: { reviewer: reviewer._id },
+          $match: { reviewer: new mongoose.Types.ObjectId(id) },
         },
         {
           $group: {
@@ -462,6 +465,7 @@ class AdminController {
         },
       ]);
 
+      // 3. Initialize default stats map exactly as the frontend expects
       const statsMap = {
         accepted: 0,
         completed: 0,
@@ -469,13 +473,38 @@ class AdminController {
         pendingFeedback: 0,
       };
 
+      // 4. Map DB enum statuses to the frontend stats map
       stats.forEach((s) => {
-        if (s._id === "accepted") statsMap.accepted = s.count;
-        if (s._id === "completed") statsMap.completed = s.count;
-        if (s._id === "incomplete") statsMap.incomplete = s.count;
-        if (s._id === "assigned") statsMap.pendingFeedback = s.count;
+        if (!s._id) return;
+
+        const status = s._id.toLowerCase();
+
+        switch (status) {
+          case "accepted":
+          case "in_progress":
+            // They accepted the assignment and are currently working on it
+            statsMap.accepted += s.count;
+            break;
+
+          case "submitted":
+            // They successfully finished and submitted the review
+            statsMap.completed += s.count;
+            break;
+
+          case "assigned":
+            // Assigned to them, but waiting for them to accept/reject
+            statsMap.pendingFeedback += s.count;
+            break;
+
+          case "rejected":
+          case "withdrawn":
+            // They declined the assignment or backed out
+            statsMap.incomplete += s.count;
+            break;
+        }
       });
 
+      // 5. Send final payload
       return res.status(200).json({
         success: true,
         data: {
