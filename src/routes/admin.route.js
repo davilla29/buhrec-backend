@@ -25,6 +25,9 @@ router.get(
 // Get all reviewers
 router.get("/reviewers", verifyToken, isAdmin, AdminController.getAllReviewers);
 
+// Get all users across all roles
+router.get("/users", verifyToken, isAdmin, AdminController.getAllUsers);
+
 // Get all proposals
 router.get("/proposals", verifyToken, isAdmin, AdminController.getAllProposals);
 
