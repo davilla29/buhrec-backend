@@ -312,7 +312,7 @@ class ResearcherController {
         // 2. Map current status to user-friendly label
         const statusLabels = {
           "Awaiting Payment": "Awaiting payment",
-          Paid: "Payment successful, waiting for assignment",
+          Paid: "Payment successful",
           "Waiting to be assigned": "Waiting for a reviewer",
           "Under Review": "Your proposal is under review",
           "Awaiting Modifications": "Modifications requested",
