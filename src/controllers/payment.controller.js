@@ -55,7 +55,7 @@ class PaymentController {
 
         // Redirect back to your frontend success screen
         return res.redirect(
-          `${process.env.FRONTEND_URL}/researcher/dashboard/proposals/${proposal._id}/payment-success`,
+          `${process.env.FRONTEND_URL_DEV}/researcher/dashboard/proposals/${proposal._id}/payment-success`,
         );
       }
 
@@ -65,7 +65,7 @@ class PaymentController {
       await proposal.save();
 
      return res.redirect(
-       `${process.env.FRONTEND_URL}/researcher/dashboard/proposals/${proposal._id}/payment-failed`,
+       `${process.env.FRONTEND_URL_DEV}/researcher/dashboard/proposals/${proposal._id}/payment-failed`,
      );
     } catch (err) {
       console.log(
