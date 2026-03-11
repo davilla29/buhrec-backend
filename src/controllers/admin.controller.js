@@ -1113,6 +1113,71 @@ class AdminController {
       return res.status(500).json({ success: false, message: "Server error" });
     }
   }
+
+  // Get all users (Admins, Reviewers, Researchers) for the Manage Users page
+  static async getAllUsers(req, res) {
+    try {
+      // Fetch all user types concurrently
+      const [admins, reviewers, researchers] = await Promise.all([
+        Administrator.find().select("fullName email isActive createdAt").lean(),
+        Reviewer.find()
+          .select("fullName email isActive institution createdAt")
+          .lean(),
+        Researcher.find()
+          .select("fullName email isActive department createdAt")
+          .lean(),
+      ]);
+
+      const users = [];
+
+      // Normalize Admin data
+      admins.forEach((admin) =>
+        users.push({
+          id: admin._id,
+          name: admin.fullName || admin.email.split("@")[0],
+          email: admin.email,
+          role: "Admin",
+          status: admin.isActive === false ? "Inactive" : "Active",
+          institution: "BUHREC",
+          createdAt: admin.createdAt,
+        }),
+      );
+
+      // Normalize Reviewer data
+      reviewers.forEach((reviewer) =>
+        users.push({
+          id: reviewer._id,
+          name: reviewer.fullName,
+          email: reviewer.email,
+          role: "Reviewer",
+          status: reviewer.isActive === false ? "Inactive" : "Active",
+          institution: reviewer.institution || "—",
+          createdAt: reviewer.createdAt,
+        }),
+      );
+
+      // Normalize Researcher data
+      researchers.forEach((researcher) =>
+        users.push({
+          id: researcher._id,
+          name: researcher.fullName,
+          email: researcher.email,
+          role: "Researcher",
+          status: researcher.isActive === false ? "Inactive" : "Active",
+          institution: researcher.department || "—",
+          createdAt: researcher.createdAt,
+        }),
+      );
+
+      // Sort by newest first
+      users.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+      return res.status(200).json({ success: true, data: users });
+    } catch (error) {
+      console.error("Get all users error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
 }
 
 export default AdminController;
