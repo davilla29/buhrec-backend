@@ -3,6 +3,7 @@ import express from "express";
 import { verifyToken, isResearcher } from "../middlewares/auth.middleware.js";
 import { uploadProposalDocs } from "../middlewares/uploadProposalDocs.js";
 import ResearcherController from "../controllers/researcher.controller.js";
+import { updateProfilePhoto } from "../middlewares/upload.js";
 
 const router = express.Router();
 
@@ -13,13 +14,13 @@ router.use(verifyToken, isResearcher);
 router.get("/proposals", ResearcherController.getAllProposals);
 
 // Get specific proposal details (including decision reason)
-router.get("/proposals/:proposalId", ResearcherController.getProposalStatusAndDecision);
+router.get(
+  "/proposals/:proposalId",
+  ResearcherController.getProposalStatusAndDecision,
+);
 
 // Get details about specific proposal draft
-router.get(
-  "/proposals/:proposalId/draft",
-  ResearcherController.getDraft,
-);
+router.get("/proposals/:proposalId/draft", ResearcherController.getDraft);
 
 // Dashboard Route
 router.get("/dashboard", ResearcherController.getDashboardStats);
@@ -34,11 +35,18 @@ router.patch(
   ResearcherController.saveDraft,
 );
 
-// Update profile details (fullName, institution, occupation)
-router.put("/profile", verifyToken, ResearcherController.updateProfile);
+// --- NEW: Get Profile ---
+router.get("/profile", ResearcherController.getProfile);
+
+// --- UPDATED: Update profile with Photo Middleware ---
+router.put(
+  "/profile",
+  updateProfilePhoto,
+  ResearcherController.updateProfile,
+);
 
 // Update password (requires current password)
-router.put("/password", verifyToken, ResearcherController.updatePassword);
+router.put("/password", ResearcherController.updatePassword);
 
 // Start payment (7000 fixed)
 router.post(
