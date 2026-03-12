@@ -1,6 +1,10 @@
 import express from "express";
 import AuthController from "../controllers/auth.controller.js";
-import { verifyToken, isReviewer } from "../middlewares/auth.middleware.js";
+import {
+  verifyToken,
+  isReviewer,
+  isReviewerActive,
+} from "../middlewares/auth.middleware.js";
 import {
   updateProfilePhoto,
   uploadReviewerPhoto,
@@ -9,52 +13,32 @@ import ReviewerController from "../controllers/reviewer.controller.js";
 
 const router = express.Router();
 
-router.get(
-  "/dashboard",
-  verifyToken,
-  isReviewer,
-  ReviewerController.getReviewerDashboard,
-);
+router.use(verifyToken, isReviewerActive);
+
+router.get("/dashboard", isReviewer, ReviewerController.getReviewerDashboard);
 
 // Get current reviewer profile
-router.get("/profile", verifyToken, isReviewer, ReviewerController.getProfile);
+router.get("/profile", isReviewer, ReviewerController.getProfile);
 
 // Update profile details (fullName, institution, title, specialization, photo)
 router.put(
   "/profile",
-  verifyToken,
   isReviewer,
   updateProfilePhoto,
   ReviewerController.updateProfile,
 );
 
 // Update password (requires current password)
-router.put(
-  "/password",
-  verifyToken,
-  isReviewer,
-  ReviewerController.updatePassword,
-);
+router.put("/password", isReviewer, ReviewerController.updatePassword);
 
-router.get(
-  "/responses",
-  verifyToken,
-  isReviewer,
-  ReviewerController.getResponses,
-);
+router.get("/responses", isReviewer, ReviewerController.getResponses);
 
 // Getting all assignment
-router.get(
-  "/assignments",
-  verifyToken,
-  isReviewer,
-  ReviewerController.listAssignments,
-);
+router.get("/assignments", isReviewer, ReviewerController.listAssignments);
 
 // Viewing details about a particular assignment
 router.get(
   "/assignments/:assignmentId",
-  verifyToken,
   isReviewer,
   ReviewerController.getAssignment,
 );
@@ -62,7 +46,6 @@ router.get(
 // Accepting an assignment
 router.patch(
   "/assignments/:assignmentId/accept",
-  verifyToken,
   isReviewer,
   ReviewerController.acceptAssignment,
 );
@@ -70,7 +53,6 @@ router.patch(
 // Declining an assignment
 router.patch(
   "/assignments/:assignmentId/decline",
-  verifyToken,
   isReviewer,
   ReviewerController.declineAssignment,
 );
@@ -78,7 +60,6 @@ router.patch(
 // Viewing the proposal attached to a particular assignment
 router.get(
   "/assignments/:assignmentId/proposal",
-  verifyToken,
   isReviewer,
   ReviewerController.getProposalForReview,
 );
@@ -86,7 +67,6 @@ router.get(
 // Viewing all submitted versions of the proposal
 router.get(
   "/assignments/:assignmentId/proposal/versions",
-  verifyToken,
   isReviewer,
   ReviewerController.listSubmittedVersions,
 );
@@ -94,7 +74,6 @@ router.get(
 // Viewing a particular proposal version
 router.get(
   "/assignments/:assignmentId/proposal/version/:versionId",
-  verifyToken,
   isReviewer,
   ReviewerController.getVersionForReview,
 );
@@ -102,7 +81,6 @@ router.get(
 // Add comments to a particular proposal assignment
 router.post(
   "/assignments/:assignmentId/comments",
-  verifyToken,
   isReviewer,
   ReviewerController.addComment,
 );
@@ -110,7 +88,6 @@ router.post(
 // Get comments for a particular proposal assignment
 router.get(
   "/assignments/:assignmentId/comments",
-  verifyToken,
   isReviewer,
   ReviewerController.listComments,
 );
@@ -118,7 +95,6 @@ router.get(
 //Final decision (approve / reject / request changes)
 router.post(
   "/assignments/:assignmentId/decision",
-  verifyToken,
   isReviewer,
   ReviewerController.submitDecision,
 );
