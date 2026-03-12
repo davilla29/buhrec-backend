@@ -1178,6 +1178,23 @@ class AdminController {
       return res.status(500).json({ success: false, message: "Server error" });
     }
   }
+
+  // Get all assignments for a specific reviewer
+  static async getReviewerAssignments(req, res) {
+    try {
+      const { reviewerId } = req.params;
+
+      const assignments = await ReviewAssignment.find({ reviewer: reviewerId })
+        .populate("proposal", "title status applicationId")
+        .sort({ updatedAt: -1 })
+        .lean();
+
+      return res.status(200).json({ success: true, data: assignments });
+    } catch (error) {
+      console.error("getReviewerAssignments error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
 }
 
 export default AdminController;
