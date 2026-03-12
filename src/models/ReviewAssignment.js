@@ -31,7 +31,14 @@ const reviewAssignmentSchema = new mongoose.Schema(
 
     assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Administrator" },
     assignedAt: { type: Date, default: Date.now },
-    // Add these inside your reviewAssignmentSchema definition
+
+    acceptedAt: { type: Date },
+    rejectedAt: { type: Date },
+    declineReason: {
+      type: String,
+      default: "",
+    },
+
     decision: {
       type: String,
       enum: ["approve", "reject", "changes_requested"],
@@ -42,7 +49,6 @@ const reviewAssignmentSchema = new mongoose.Schema(
     },
     decidedAt: { type: Date },
 
-    // Deadline given to the complete the review
     dueAt: { type: Date },
   },
   { timestamps: true },

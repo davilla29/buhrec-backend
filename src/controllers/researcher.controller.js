@@ -396,19 +396,19 @@ class ResearcherController {
           .json({ success: false, message: "Proposal not found" });
       }
 
-      // 2. Find the review assignment to get the decisionReason
-      // We sort by decidedAt descending to get the most recent decision if there were multiple rounds
+      // 2. Find the review assignment that actually has a decision!
+      // This guarantees we grab the assignment where the reviewer hit Approve/Reject
       const assignment = await ReviewAssignment.findOne({
         proposal: proposal._id,
-        status: "submitted", // Reviewers submit their decisions here
+        decision: { $exists: true, $ne: null }, // Explicitly find the one with a decision
       })
         .sort({ decidedAt: -1 })
         .lean();
 
-      // 3. Attach the decision data to the proposal object
+      // 3. Attach the decision data directly into the proposal object
       const proposalData = {
         ...proposal,
-        decisionReason: assignment?.decisionReason || "",
+        decisionReason: assignment?.decisionReason || "", // Map it properly here
         assignedAt:
           assignment?.assignedAt || proposal.assignedAt || proposal.createdAt,
       };
@@ -816,7 +816,7 @@ class ResearcherController {
       const proposals = await Proposal.find({ researcher: req.userId })
         .populate({
           path: "lastStatusChangedBy",
-          select: "fullName", // ← corrected
+          select: "fullName photoUrl", // ← corrected
         })
         .sort({ updatedAt: -1 })
         .lean();
@@ -824,17 +824,20 @@ class ResearcherController {
       // Add reviewerName field
       const formattedProposals = proposals.map((proposal) => {
         let reviewerName = "Pending Assignment";
+        let reviewerPhoto = "";
 
         if (
           proposal.status !== "Waiting to be assigned" &&
           proposal.lastStatusChangedBy
         ) {
           reviewerName = proposal.lastStatusChangedBy.fullName;
+          reviewerPhoto = proposal.lastStatusChangedBy.photoUrl || "";
         }
 
         return {
           ...proposal,
           reviewerName,
+          reviewerPhoto
         };
       });
 
