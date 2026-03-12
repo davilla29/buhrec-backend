@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { Proposal } from "../models/Proposal.js";
+import bcrypt from "bcryptjs";
 import axios from "axios";
 import { Researcher } from "../models/Researcher.js";
 import { Administrator } from "../models/Administrator.js";
@@ -1158,7 +1159,7 @@ class ResearcherController {
       return res.status(500).json({ success: false, message: "Server error" });
     }
   }
-  
+
   // ==========================================
   // UPDATE RESEARCHER PASSWORD
   // ==========================================
