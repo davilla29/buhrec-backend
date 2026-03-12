@@ -1,7 +1,10 @@
 import express from "express";
 import AuthController from "../controllers/auth.controller.js";
 import { verifyToken, isReviewer } from "../middlewares/auth.middleware.js";
-import { uploadReviewerPhoto } from "../middlewares/upload.js";
+import {
+  updateProfilePhoto,
+  uploadReviewerPhoto,
+} from "../middlewares/upload.js";
 import ReviewerController from "../controllers/reviewer.controller.js";
 
 const router = express.Router();
@@ -21,7 +24,7 @@ router.put(
   "/profile",
   verifyToken,
   isReviewer,
-  uploadReviewerPhoto,
+  updateProfilePhoto,
   ReviewerController.updateProfile,
 );
 
@@ -71,12 +74,6 @@ router.patch(
   isReviewer,
   ReviewerController.declineAssignment,
 );
-
-// Update profile details (fullName, institution, title, specialization)
-router.put("/profile", verifyToken, ReviewerController.updateProfile);
-
-// Update password (requires current password)
-router.put("/password", verifyToken, ReviewerController.updatePassword);
 
 // Viewing the proposal attached to a particular assignment
 router.get(

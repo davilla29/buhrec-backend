@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 import { ReviewAssignment } from "../models/ReviewAssignment.js";
 import { Proposal } from "../models/Proposal.js";
 import { ProposalVersion } from "../models/ProposalVersion.js";
@@ -175,7 +176,7 @@ class ReviewerController {
         const uploaded = await uploadBufferToCloudinary(req.file.buffer, {
           folder: "buhrec/reviewers",
           resource_type: "image",
-          transformation: [{ width: 500, height: 500, crop: "fill" }], // optional standardization
+          // transformation: [{ width: 500, height: 500, crop: "fill" }], // optional standardization
         });
 
         reviewer.photoUrl = uploaded.secure_url;
@@ -838,45 +839,6 @@ class ReviewerController {
     } catch (error) {
       console.log("submitDecision error:", error);
       return res.status(500).json({ success: false, message: error.message });
-    }
-  }
-
-  // ==========================================
-  // UPDATE REVIEWER PROFILE
-  // ==========================================
-  static async updateProfile(req, res) {
-    try {
-      const { fullName, institution, title, specialization } = req.body;
-
-      const reviewer = await Reviewer.findById(req.userId);
-      if (!reviewer) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Reviewer not found" });
-      }
-
-      // Update allowed fields
-      if (fullName) reviewer.fullName = fullName.trim();
-      if (institution) reviewer.institution = institution.trim();
-      if (title) reviewer.title = title.trim();
-      if (specialization) reviewer.specialization = specialization.trim();
-
-      await reviewer.save();
-
-      // Sanitize
-      const safeUser = reviewer.toObject();
-      delete safeUser.password;
-      delete safeUser.verificationToken;
-      delete safeUser.verificationTokenExpiresAt;
-
-      return res.status(200).json({
-        success: true,
-        message: "Profile updated successfully",
-        data: safeUser,
-      });
-    } catch (error) {
-      console.error("Update reviewer profile error:", error);
-      return res.status(500).json({ success: false, message: "Server error" });
     }
   }
 
