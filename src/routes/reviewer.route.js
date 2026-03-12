@@ -1,14 +1,7 @@
-// View, Accept and Reject assignment and add reason if declining
-// Review proposal
-// Comment on proposal and request for changes
-// Review updated proposal
-// Approve or reject proposal
-// View notifications
-
-// routes/reviewer.routes.js
 import express from "express";
 import AuthController from "../controllers/auth.controller.js";
 import { verifyToken, isReviewer } from "../middlewares/auth.middleware.js";
+import { uploadReviewerPhoto } from "../middlewares/upload.js";
 import ReviewerController from "../controllers/reviewer.controller.js";
 
 const router = express.Router();
@@ -19,6 +12,27 @@ router.get(
   isReviewer,
   ReviewerController.getReviewerDashboard,
 );
+
+// Get current reviewer profile
+router.get("/profile", verifyToken, isReviewer, ReviewerController.getProfile);
+
+// Update profile details (fullName, institution, title, specialization, photo)
+router.put(
+  "/profile",
+  verifyToken,
+  isReviewer,
+  uploadReviewerPhoto,
+  ReviewerController.updateProfile,
+);
+
+// Update password (requires current password)
+router.put(
+  "/password",
+  verifyToken,
+  isReviewer,
+  ReviewerController.updatePassword,
+);
+
 router.get(
   "/responses",
   verifyToken,
