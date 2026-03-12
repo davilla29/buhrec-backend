@@ -1,4 +1,3 @@
-// controllers/reviewer.controller.js
 import mongoose from "mongoose";
 import { ReviewAssignment } from "../models/ReviewAssignment.js";
 import { Proposal } from "../models/Proposal.js";
@@ -6,6 +5,10 @@ import { ProposalVersion } from "../models/ProposalVersion.js";
 import { ReviewComment } from "../models/ReviewComment.js";
 import { Reviewer } from "../models/Reviewer.js";
 import NotificationController from "./notification.controller.js";
+import {
+  uploadBufferToCloudinary,
+  deleteFromCloudinary,
+} from "../utils/cloudinaryUpload.js";
 
 function isValidObjectId(id) {
   return mongoose.Types.ObjectId.isValid(id);
@@ -103,6 +106,26 @@ class ReviewerController {
     } catch (error) {
       console.error("Dashboard Error:", error);
       res.status(500).json({ message: "Server Error", error: error.message });
+    }
+  }
+
+  // ==========================================
+  // GET REVIEWER PROFILE
+  // ==========================================
+  static async getProfile(req, res) {
+    try {
+      const reviewer = await Reviewer.findById(req.userId)
+        .select("-password")
+        .lean();
+      if (!reviewer) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Reviewer not found" });
+      }
+      return res.status(200).json({ success: true, data: reviewer });
+    } catch (error) {
+      console.error("Get reviewer profile error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
     }
   }
 
