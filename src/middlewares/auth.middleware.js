@@ -67,11 +67,30 @@ export const isResearcher = (req, res, next) => {
 
 export const isReviewer = (req, res, next) => {
   if (req.userRole !== "reviewer")
-    return res
-      .status(403)
-      .json({
-        success: false,
-        message: "Only Reviewers can perform the action",
-      });
+    return res.status(403).json({
+      success: false,
+      message: "Only Reviewers can perform the action",
+    });
+  next();
+};
+
+export const isReviewerActive = (req, res, next) => {
+  // First, verify they are actually an reviewer
+  if (req.userRole !== "reviewer") {
+    return res.status(403).json({
+      success: false,
+      message: "Only reviewers can perform this action",
+    });
+  }
+
+  // Next, check if their account has been deactivated
+  if (req.user && req.user.isActive === false) {
+    return res.status(403).json({
+      success: false,
+      message:
+        "Your reviewer account has been deactivated. Please contact the admin.",
+    });
+  }
+
   next();
 };
