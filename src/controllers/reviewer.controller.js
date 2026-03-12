@@ -1,11 +1,15 @@
-// controllers/reviewer.controller.js
 import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 import { ReviewAssignment } from "../models/ReviewAssignment.js";
 import { Proposal } from "../models/Proposal.js";
 import { ProposalVersion } from "../models/ProposalVersion.js";
 import { ReviewComment } from "../models/ReviewComment.js";
 import { Reviewer } from "../models/Reviewer.js";
 import NotificationController from "./notification.controller.js";
+import {
+  uploadBufferToCloudinary,
+  deleteFromCloudinary,
+} from "../utils/cloudinaryUpload.js";
 
 function isValidObjectId(id) {
   return mongoose.Types.ObjectId.isValid(id);
@@ -103,6 +107,98 @@ class ReviewerController {
     } catch (error) {
       console.error("Dashboard Error:", error);
       res.status(500).json({ message: "Server Error", error: error.message });
+    }
+  }
+
+  // ==========================================
+  // GET REVIEWER PROFILE
+  // ==========================================
+  static async getProfile(req, res) {
+    try {
+      const reviewer = await Reviewer.findById(req.userId)
+        .select("-password")
+        .lean();
+      if (!reviewer) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Reviewer not found" });
+      }
+      return res.status(200).json({ success: true, data: reviewer });
+    } catch (error) {
+      console.error("Get reviewer profile error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+
+  // ==========================================
+  // UPDATE REVIEWER PROFILE
+  // ==========================================
+  static async updateProfile(req, res) {
+    try {
+      const {
+        fullName,
+        institution,
+        title,
+        specialization,
+        yearsOfExperience,
+      } = req.body;
+
+      const reviewer = await Reviewer.findById(req.userId);
+      if (!reviewer) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Reviewer not found" });
+      }
+
+      // Update allowed text fields
+      if (fullName) reviewer.fullName = fullName.trim();
+      if (institution) reviewer.institution = institution.trim();
+      if (title) reviewer.title = title.trim();
+      if (specialization) reviewer.specialization = specialization.trim();
+      if (yearsOfExperience !== undefined)
+        reviewer.yearsOfExperience = Number(yearsOfExperience);
+
+      // Handle Image Upload
+      if (req.file?.buffer) {
+        // 1. Delete the old photo from Cloudinary if it exists to save space
+        if (reviewer.photoPublicId) {
+          try {
+            await deleteFromCloudinary(reviewer.photoPublicId);
+          } catch (delErr) {
+            console.error(
+              "Failed to delete old photo from Cloudinary:",
+              delErr,
+            );
+          }
+        }
+
+        // 2. Upload the new photo
+        const uploaded = await uploadBufferToCloudinary(req.file.buffer, {
+          folder: "buhrec/reviewers",
+          resource_type: "image",
+          // transformation: [{ width: 500, height: 500, crop: "fill" }], // optional standardization
+        });
+
+        reviewer.photoUrl = uploaded.secure_url;
+        reviewer.photoPublicId = uploaded.public_id;
+      }
+
+      await reviewer.save();
+
+      // Sanitize output
+      const safeUser = reviewer.toObject();
+      delete safeUser.password;
+      delete safeUser.verificationToken;
+      delete safeUser.verificationTokenExpiresAt;
+
+      return res.status(200).json({
+        success: true,
+        message: "Profile updated successfully",
+        data: safeUser,
+      });
+    } catch (error) {
+      console.error("Update reviewer profile error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
     }
   }
 
@@ -747,45 +843,6 @@ class ReviewerController {
   }
 
   // ==========================================
-  // UPDATE REVIEWER PROFILE
-  // ==========================================
-  static async updateProfile(req, res) {
-    try {
-      const { fullName, institution, title, specialization } = req.body;
-
-      const reviewer = await Reviewer.findById(req.userId);
-      if (!reviewer) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Reviewer not found" });
-      }
-
-      // Update allowed fields
-      if (fullName) reviewer.fullName = fullName.trim();
-      if (institution) reviewer.institution = institution.trim();
-      if (title) reviewer.title = title.trim();
-      if (specialization) reviewer.specialization = specialization.trim();
-
-      await reviewer.save();
-
-      // Sanitize
-      const safeUser = reviewer.toObject();
-      delete safeUser.password;
-      delete safeUser.verificationToken;
-      delete safeUser.verificationTokenExpiresAt;
-
-      return res.status(200).json({
-        success: true,
-        message: "Profile updated successfully",
-        data: safeUser,
-      });
-    } catch (error) {
-      console.error("Update reviewer profile error:", error);
-      return res.status(500).json({ success: false, message: "Server error" });
-    }
-  }
-
-  // ==========================================
   // UPDATE REVIEWER PASSWORD
   // ==========================================
   static async updatePassword(req, res) {
@@ -900,6 +957,5 @@ class ReviewerController {
   //   }
   // }
 }
-
 
 export default ReviewerController;
