@@ -71,6 +71,22 @@ router.get(
   AdminController.getReviewerById,
 );
 
+// Get all assignments assigned to a specific reviewer
+router.get(
+  "/reviewers/:reviewerId/assignments",
+  verifyToken,
+  isAdmin,
+  AdminController.getReviewerAssignments
+);
+
+// Get specific assignment details (Admin view of reviewer's work)
+router.get(
+  "/assignments/:assignmentId/details",
+  verifyToken,
+  isAdmin,
+  AdminController.getAssignmentDetails
+);
+
 // Get all details for a specific proposal for the admin view
 router.get(
   "/proposals/:proposalId/details",
