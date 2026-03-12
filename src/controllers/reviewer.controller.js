@@ -309,8 +309,15 @@ class ReviewerController {
     try {
       const { assignmentId } = req.params;
       const reviewerId = req.userId;
-      const { reason = "" } = req.body;
+    const { reason } = req.body;
 
+    // STRICT VALIDATION: Must provide a reason to decline
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "A reason is strictly required to decline an assignment.",
+      });
+    }
       const assignment = await getReviewerAssignmentOr404(
         assignmentId,
         reviewerId,

@@ -27,7 +27,7 @@ const reviewerSchema = new mongoose.Schema(
     },
     yearsOfExperience: { type: Number, required: true, min: 0 },
 
-    // ✅ cloudinary photo fields
+ 
     photoUrl: { type: String, default: "" },
     photoPublicId: { type: String, default: "" },
 
