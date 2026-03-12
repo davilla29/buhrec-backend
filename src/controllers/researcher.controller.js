@@ -1074,11 +1074,31 @@ class ResearcherController {
   }
 
   // ==========================================
+  // GET RESEARCHER PROFILE
+  // ==========================================
+  static async getProfile(req, res) {
+    try {
+      const researcher = await Researcher.findById(req.userId)
+        .select("-password")
+        .lean();
+      if (!researcher) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Researcher not found" });
+      }
+      return res.status(200).json({ success: true, data: researcher });
+    } catch (error) {
+      console.error("Get researcher profile error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+
+  // ==========================================
   // UPDATE RESEARCHER PROFILE
   // ==========================================
   static async updateProfile(req, res) {
     try {
-      const { fullName, institution, occupation } = req.body;
+      const { fullName, institution, occupation, department, phone } = req.body;
 
       // Find the researcher
       const researcher = await Researcher.findById(req.userId);
@@ -1088,10 +1108,37 @@ class ResearcherController {
           .json({ success: false, message: "Researcher not found" });
       }
 
-      // Update allowed fields if they are provided
+      // Update allowed text fields if they are provided
       if (fullName) researcher.fullName = fullName.trim();
       if (institution) researcher.institution = institution.trim();
       if (occupation) researcher.occupation = occupation.trim();
+      if (department) researcher.department = department.trim();
+      if (phone) researcher.phone = phone.trim();
+
+      // Handle Image Upload
+      if (req.file?.buffer) {
+        // 1. Delete old photo to save space
+        if (researcher.photoPublicId) {
+          try {
+            await deleteFromCloudinary(researcher.photoPublicId);
+          } catch (delErr) {
+            console.error(
+              "Failed to delete old photo from Cloudinary:",
+              delErr,
+            );
+          }
+        }
+
+        // 2. Upload the new photo
+        const uploaded = await uploadBufferToCloudinary(req.file.buffer, {
+          folder: "buhrec/researchers",
+          resource_type: "image",
+          transformation: [{ width: 500, height: 500, crop: "fill" }],
+        });
+
+        researcher.photoUrl = uploaded.secure_url;
+        researcher.photoPublicId = uploaded.public_id;
+      }
 
       await researcher.save();
 
@@ -1111,7 +1158,7 @@ class ResearcherController {
       return res.status(500).json({ success: false, message: "Server error" });
     }
   }
-
+  
   // ==========================================
   // UPDATE RESEARCHER PASSWORD
   // ==========================================
