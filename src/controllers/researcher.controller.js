@@ -816,7 +816,7 @@ class ResearcherController {
       const proposals = await Proposal.find({ researcher: req.userId })
         .populate({
           path: "lastStatusChangedBy",
-          select: "fullName", // ← corrected
+          select: "fullName photoUrl", // ← corrected
         })
         .sort({ updatedAt: -1 })
         .lean();
@@ -824,17 +824,20 @@ class ResearcherController {
       // Add reviewerName field
       const formattedProposals = proposals.map((proposal) => {
         let reviewerName = "Pending Assignment";
+        let reviewerPhoto = "";
 
         if (
           proposal.status !== "Waiting to be assigned" &&
           proposal.lastStatusChangedBy
         ) {
           reviewerName = proposal.lastStatusChangedBy.fullName;
+          reviewerPhoto = proposal.lastStatusChangedBy.photoUrl || "";
         }
 
         return {
           ...proposal,
           reviewerName,
+          reviewerPhoto
         };
       });
 
