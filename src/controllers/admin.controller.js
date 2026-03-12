@@ -399,7 +399,7 @@ class AdminController {
         {
           $match: {
             reviewer: { $in: reviewerIds },
-            status: "ongoing",
+            status: "in_progress",
           },
         },
         {
@@ -1175,6 +1175,74 @@ class AdminController {
       return res.status(200).json({ success: true, data: users });
     } catch (error) {
       console.error("Get all users error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+
+  // Get all assignments for a specific reviewer
+  static async getReviewerAssignments(req, res) {
+    try {
+      const { reviewerId } = req.params;
+
+      const assignments = await ReviewAssignment.find({ reviewer: reviewerId })
+        .populate("proposal", "title status applicationId")
+        .sort({ updatedAt: -1 })
+        .lean();
+
+      return res.status(200).json({ success: true, data: assignments });
+    } catch (error) {
+      console.error("getReviewerAssignments error:", error);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+
+  // Get full details of a specific assignment (for the Admin's view)
+  static async getAssignmentDetails(req, res) {
+    try {
+      const { assignmentId } = req.params;
+
+      const assignment = await ReviewAssignment.findById(assignmentId)
+        .populate("proposal")
+        .populate("reviewer", "fullName photoUrl")
+        .lean();
+
+      if (!assignment) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Assignment not found" });
+      }
+
+      // Fetch the latest submitted version the reviewer is looking at
+      const latestVersion = await ProposalVersion.findOne({
+        proposal: assignment.proposal._id,
+        kind: "submitted",
+      })
+        .sort({ versionNumber: -1 })
+        .lean();
+
+      // Fetch comments made by this specific reviewer on this specific assignment
+      let comments = [];
+      if (latestVersion) {
+        comments = await ReviewComment.find({
+          assignment: assignment._id,
+          proposalVersion: latestVersion._id,
+        })
+          .populate("reviewer", "fullName photoUrl")
+          .sort({ createdAt: -1 })
+          .lean();
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          assignment,
+          proposal: assignment.proposal,
+          latestVersion,
+          comments,
+        },
+      });
+    } catch (error) {
+      console.error("getAssignmentDetails error:", error);
       return res.status(500).json({ success: false, message: "Server error" });
     }
   }
