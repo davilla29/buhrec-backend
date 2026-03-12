@@ -669,7 +669,8 @@ class AdminController {
       if (activeAssignment) {
         return res.status(409).json({
           success: false,
-          message: `This proposal is currently assigned to someone else (Status: ${activeAssignment.status}). You can only assign a new reviewer if the previous reviewer rejected the assignment.`,
+          // message: `This proposal is currently assigned to someone else (Status: ${activeAssignment.status}). You can only assign a new reviewer if the previous reviewer rejected the assignment.`,
+          message: `This proposal is currently assigned to someone else.`,
         });
       }
 
