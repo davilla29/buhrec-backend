@@ -399,7 +399,7 @@ class AdminController {
         {
           $match: {
             reviewer: { $in: reviewerIds },
-            status: "ongoing",
+            status: "in_progress",
           },
         },
         {
