@@ -29,7 +29,15 @@ const researcherSchema = new mongoose.Schema(
     verificationTokenExpiresAt: { type: Date, select: false },
 
     role: { type: String, default: "researcher", immutable: true },
-    // ✅ cloudinary photo fields
+    department: {
+      type: String,
+      default: "General",
+    },
+
+    phoneNumber: {
+      type: String,
+      default: "",
+    },
     photoUrl: { type: String, default: "" },
     photoPublicId: { type: String, default: "" },
 
