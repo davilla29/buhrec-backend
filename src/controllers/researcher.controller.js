@@ -1102,7 +1102,8 @@ class ResearcherController {
   // ==========================================
   static async updateProfile(req, res) {
     try {
-      const { fullName, institution, occupation, department, phone } = req.body;
+      const { fullName, institution, occupation, department, phoneNumber } =
+        req.body;
 
       // Find the researcher
       const researcher = await Researcher.findById(req.userId);
@@ -1117,7 +1118,8 @@ class ResearcherController {
       if (institution) researcher.institution = institution.trim();
       if (occupation) researcher.occupation = occupation.trim();
       if (department) researcher.department = department.trim();
-      if (phone) researcher.phone = phone.trim();
+      if (phoneNumber !== undefined)
+        researcher.phoneNumber = phoneNumber.trim();
 
       // Handle Image Upload
       if (req.file?.buffer) {
