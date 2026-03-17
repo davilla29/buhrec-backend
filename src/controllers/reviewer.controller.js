@@ -309,15 +309,15 @@ class ReviewerController {
     try {
       const { assignmentId } = req.params;
       const reviewerId = req.userId;
-    const { reason } = req.body;
+      const { reason } = req.body;
 
-    // STRICT VALIDATION: Must provide a reason to decline
-    if (!reason || !reason.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "A reason is strictly required to decline an assignment.",
-      });
-    }
+      // STRICT VALIDATION: Must provide a reason to decline
+      if (!reason || !reason.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "A reason is strictly required to decline an assignment.",
+        });
+      }
       const assignment = await getReviewerAssignmentOr404(
         assignmentId,
         reviewerId,
@@ -908,23 +908,37 @@ class ReviewerController {
       const activeAssignments = await ReviewAssignment.find({
         reviewer: reviewerId,
         status: { $in: ["accepted", "in_progress"] },
-      }).select("proposal");
+      }).lean(); // <-- Added lean() to get plain JS objects
 
       const proposalIds = activeAssignments.map((a) => a.proposal);
 
       // 2. Filter proposals that are back in "Under Review"
       // but have a versionCount > 1 (meaning they were updated)
-      const responses = await Proposal.find({
+      const proposals = await Proposal.find({
         _id: { $in: proposalIds },
         status: "Under Review",
         versionCount: { $gt: 1 },
         lastStatusChangedBy: reviewerId, // Ensures YOU were the one who asked for the changes
-      }).sort({ updatedAt: -1 });
+      })
+        .sort({ updatedAt: -1 })
+        .lean(); // <-- Added lean() here too
+
+      // 3. IMPORTANT: Map the assignmentId into the proposal object
+      // so the frontend knows where to route the user!
+      const responses = proposals.map((p) => {
+        const matchingAssignment = activeAssignments.find(
+          (a) => a.proposal.toString() === p._id.toString(),
+        );
+        return {
+          ...p,
+          assignmentId: matchingAssignment ? matchingAssignment._id : null,
+        };
+      });
 
       return res.status(200).json({
         success: true,
         count: responses.length,
-        responses,
+        responses, // Now contains assignmentId inside each proposal!
       });
     } catch (error) {
       console.error("getResponses error:", error);
