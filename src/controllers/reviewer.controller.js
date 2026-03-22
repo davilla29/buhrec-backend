@@ -341,6 +341,31 @@ class ReviewerController {
 
       await assignment.save();
 
+      await Proposal.updateOne(
+        { _id: assignment.proposal._id },
+        {
+          $set: {
+            status: "Waiting to be assigned",
+            lastStatusChangedBy: reviewerId,
+            lastStatusChangedAt: new Date(),
+          },
+          $unset: {
+            assignedAt: "",
+          },
+        },
+      );
+
+      // Notify the Admin that it was declined
+      await NotificationController.createNotification({
+        title: "Assignment Declined",
+        message: `Reviewer declined the assignment for proposal "${assignment.proposal?.title || "Unknown"}". Reason: ${reason}`,
+        proposalId: assignment.proposal._id,
+        senderId: reviewerId,
+        senderModel: "Reviewer",
+        receiverId: assignment.assignedBy, // The admin who assigned it
+        receiverModel: "Administrator",
+      });
+
       return res.status(200).json({
         success: true,
         message: "Assignment declined",
