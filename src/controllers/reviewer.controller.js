@@ -341,6 +341,21 @@ class ReviewerController {
 
       await assignment.save();
 
+      // IMPORTANT UPDATE: Revert Proposal status so Admin can reassign
+      await Proposal.updateOne(
+        { _id: assignment.proposal._id },
+        {
+          $set: {
+            status: "Waiting to be assigned",
+            lastStatusChangedBy: reviewerId,
+            lastStatusChangedAt: new Date(),
+          },
+          $unset: {
+            assignedAt: "", // Unset this so it fully looks unassigned
+          },
+        },
+      );
+
       return res.status(200).json({
         success: true,
         message: "Assignment declined",
