@@ -21,8 +21,9 @@ const proposalSchema = new mongoose.Schema(
       enum: [
         "Draft",
         "Awaiting Payment",
-        "Paid", // <-- added (ready-to-submit)
+        "Paid",
         "Waiting to be assigned",
+        "Pending Acceptance",
         "Under Review",
         "Awaiting Modifications",
         "Rejected",

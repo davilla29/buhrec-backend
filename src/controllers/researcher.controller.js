@@ -315,6 +315,7 @@ class ResearcherController {
           "Awaiting Payment": "Awaiting payment",
           Paid: "Payment successful",
           "Waiting to be assigned": "Waiting for a reviewer",
+          "Pending Acceptance": "Pending Acceptance",
           "Under Review": "Your proposal is under review",
           "Awaiting Modifications": "Modifications requested",
         };
@@ -365,7 +366,7 @@ class ResearcherController {
             ? {
                 _id: activeProposal._id,
                 title: activeProposal.title,
-                applicationId: activeProposal.applicationId, // Added this since it's a useful identifier from your model
+                applicationId: activeProposal.applicationId,
                 timeline: timeline,
               }
             : null,
@@ -837,7 +838,7 @@ class ResearcherController {
         return {
           ...proposal,
           reviewerName,
-          reviewerPhoto
+          reviewerPhoto,
         };
       });
 
