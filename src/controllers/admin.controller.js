@@ -641,7 +641,6 @@ class AdminController {
       const assignableStatuses = [
         "Paid",
         "Waiting to be assigned",
-        "Under Review",
       ];
       if (!assignableStatuses.includes(proposal.status)) {
         return res.status(400).json({
