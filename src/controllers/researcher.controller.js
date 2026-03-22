@@ -381,15 +381,67 @@ class ResearcherController {
   // ==========================================
   // GET PROPOSAL DECISION DETAILS
   // ==========================================
+  // static async getProposalStatusAndDecision(req, res) {
+  //   try {
+  //     const { proposalId } = req.params;
+
+  //     // 1. Find the proposal
+  //     const proposal = await Proposal.findOne({
+  //       _id: proposalId,
+  //       researcher: req.userId,
+  //     }).lean();
+
+  //     if (!proposal) {
+  //       return res
+  //         .status(404)
+  //         .json({ success: false, message: "Proposal not found" });
+  //     }
+
+  //     // 2. Find the review assignment that actually has a decision!
+  //     // This guarantees we grab the assignment where the reviewer hit Approve/Reject
+  //     const assignment = await ReviewAssignment.findOne({
+  //       proposal: proposal._id,
+  //       decision: { $exists: true, $ne: null }, // Explicitly find the one with a decision
+  //     })
+  //       .sort({ decidedAt: -1 })
+  //       .lean();
+
+  //     // 3. Attach the decision data directly into the proposal object
+  //     const proposalData = {
+  //       ...proposal,
+  //       decisionReason: assignment?.decisionReason || "", // Map it properly here
+  //       assignedAt:
+  //         assignment?.assignedAt || proposal.assignedAt || proposal.createdAt,
+  //     };
+
+  //     return res.status(200).json({
+  //       success: true,
+  //       proposal: proposalData,
+  //     });
+  //   } catch (err) {
+  //     console.error("getProposalStatusAndDecision error:", err);
+  //     return res.status(500).json({ success: false, message: "Server error" });
+  //   }
+  // }
+
+  // ==========================================
+  // GET PROPOSAL DECISION DETAILS
+  // ==========================================
   static async getProposalStatusAndDecision(req, res) {
     try {
       const { proposalId } = req.params;
 
-      // 1. Find the proposal
+      // 1. Find the proposal AND POPULATE the required fields for the certificate
       const proposal = await Proposal.findOne({
         _id: proposalId,
         researcher: req.userId,
-      }).lean();
+      })
+        .populate("researcher", "fullName") // <-- FETCHES RESEARCHER NAME
+        .populate({
+          path: "currentVersion",
+          select: "formData versionNumber", // <-- FETCHES DEPARTMENT, COLLEGE, AND VERSION
+        })
+        .lean();
 
       if (!proposal) {
         return res
