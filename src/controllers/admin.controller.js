@@ -641,7 +641,6 @@ class AdminController {
       const assignableStatuses = [
         "Paid",
         "Waiting to be assigned",
-        "Under Review",
       ];
       if (!assignableStatuses.includes(proposal.status)) {
         return res.status(400).json({
@@ -715,7 +714,7 @@ class AdminController {
       // Update proposal meta
       // Once assigned (but not yet accepted), proposal should be "Waiting to be assigned"
       const now = new Date();
-      proposal.status = "Waiting to be assigned";
+      proposal.status = "Pending Acceptance";
       proposal.assignedAt = now;
       proposal.lastStatusChangedBy = reviewer._id; // optional: you can also set admin id if you want
       proposal.lastStatusChangedAt = now;
