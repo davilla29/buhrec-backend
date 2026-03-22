@@ -388,7 +388,7 @@ class AdminController {
       // basic reviewer info
       const reviewers = await Reviewer.find()
         .select(
-          "fullName title email isActive specialization institution photoUrl createdAt",
+          "fullName title email isActive specialization yearsOfExperience institution photoUrl createdAt",
         )
         .lean();
 
