@@ -411,17 +411,17 @@ class ResearcherController {
         });
       }
 
-      // Check if proposal already exists
-      const existingProposal = await Proposal.findOne({
-        researcher: researcherId,
-      });
+      // // Check if proposal already exists
+      // const existingProposal = await Proposal.findOne({
+      //   researcher: researcherId,
+      // });
 
-      if (existingProposal) {
-        return res.status(400).json({
-          success: false,
-          message: "You have already created a proposal.",
-        });
-      }
+      // if (existingProposal) {
+      //   return res.status(400).json({
+      //     success: false,
+      //     message: "You have already created a proposal.",
+      //   });
+      // }
 
       if (!title) {
         return res
