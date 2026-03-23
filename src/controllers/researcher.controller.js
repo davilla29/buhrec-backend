@@ -518,6 +518,21 @@ class ResearcherController {
       const { title } = req.body;
       const researcherId = req.userId;
 
+      // Check if the researcher has any ONGOING proposals
+      // $nin means "Not In" array. If a proposal exists that isn't Approved/Rejected, block creation.
+      const ongoingProposal = await Proposal.findOne({
+        researcher: researcherId,
+        status: { $nin: ["Approved", "Rejected"] },
+      });
+
+      if (ongoingProposal) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "You currently have an ongoing proposal. You can only create a new one after your current proposal is Approved or Rejected.",
+        });
+      }
+
       // Check if proposal already exists
       const existingProposal = await Proposal.findOne({
         researcher: researcherId,
