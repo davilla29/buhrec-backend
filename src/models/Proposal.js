@@ -7,13 +7,11 @@ const proposalSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Researcher",
       required: true,
-      unique: true,
       index: true,
     },
 
     title: { type: String, required: true, trim: true },
 
-    // Application ID like: BUH-AF9SK2
     applicationId: { type: String, required: true, unique: true, index: true },
 
     status: {

@@ -105,7 +105,6 @@ function validateUpdateSubmission(files, body) {
   }
 
   // 2. Ensure they uploaded the primary document being revised
-  // Usually, "Awaiting Modifications" implies the PDF/Word proposal needs a fix.
   if (!files || !files.proposalDocument) {
     return "You must upload the revised Proposal Document.";
   }
@@ -117,127 +116,6 @@ class ResearcherController {
   // ==========================================
   // RESEARCHER DASHBOARD STATS
   // ==========================================
-  // static async getDashboardStats(req, res) {
-  //   try {
-  //     const userId = req.userId;
-
-  //     // Fetch all proposals for this researcher
-  //     const proposals = await Proposal.find({ researcher: userId }).lean();
-
-  //     // Define how we categorize statuses
-  //     const finalStatuses = ["Approved", "Rejected"];
-  //     const draftStatuses = ["Draft"];
-
-  //     let completedCount = 0;
-  //     let draftCount = 0;
-  //     let ongoingProposals = [];
-
-  //     // Categorize proposals
-  //     proposals.forEach((p) => {
-  //       if (finalStatuses.includes(p.status)) {
-  //         completedCount++;
-  //       } else if (draftStatuses.includes(p.status)) {
-  //         draftCount++;
-  //       } else {
-  //         // Anything else (Paid, Waiting to be assigned, Under Review, etc.) is ongoing
-  //         ongoingProposals.push(p);
-  //       }
-  //     });
-
-  //     // Sort ongoing proposals to find the most recently updated one
-  //     ongoingProposals.sort(
-  //       (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt),
-  //     );
-  //     const activeProposal =
-  //       ongoingProposals.length > 0 ? ongoingProposals[0] : null;
-
-  //     // Inside getDashboardStats in your controller
-  //     let timeline = [];
-
-  //     if (activeProposal) {
-  //       // 1. Submission Milestone (Always first)
-  //       if (activeProposal.submittedAt) {
-  //         timeline.push({
-  //           label: "Your proposal has submitted",
-  //           date: activeProposal.submittedAt,
-  //           isCurrent: false,
-  //         });
-  //       }
-
-  //         if (
-  //           activeProposal.assignedAt ||
-  //           activeProposal.status === "Awaiting Payment"
-  //         ) {
-  //           timeline.push({
-  //             label: "Your proposal is awaiting payment",
-  //             date: activeProposal.assignedAt || activeProposal.updatedAt,
-  //             isCurrent: false,
-  //           });
-  //         }
-
-  //       // 2. Assignment Milestone
-  //       // Ensure your Proposal model has an 'assignedAt' field or logic for this
-  //       if (
-  //         activeProposal.assignedAt ||
-  //         activeProposal.status !== "Waiting to be assigned"
-  //       ) {
-  //         timeline.push({
-  //           label: "Your proposal has been assigned to a reviewer",
-  //           date: activeProposal.assignedAt || activeProposal.updatedAt,
-  //           isCurrent: false,
-  //         });
-  //       }
-
-  //       // 3. Current Status Milestone
-  //       let currentStatusLabel = `Proposal status: ${activeProposal.status}`;
-  //       if (activeProposal.status === "Under Review") {
-  //         currentStatusLabel = "Your proposal is under review";
-  //       } else if (activeProposal.status === "Waiting to be assigned") {
-  //         currentStatusLabel = "Your proposal is waiting for a reviewer";
-  //       } else if (activeProposal.status === "Awaiting Modifications") {
-  //         currentStatusLabel = "Modifications requested for your proposal";
-  //       }
-
-  //       timeline.push({
-  //         label: currentStatusLabel,
-  //         date: activeProposal.lastStatusChangedAt || activeProposal.updatedAt,
-  //         isCurrent: true,
-  //       });
-
-  //       // Sort Descending (Newest first)
-  //       timeline.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-  //       // Fix: Ensure ONLY the first (newest) item is marked as current
-  //       timeline = timeline.map((item, index) => ({
-  //         ...item,
-  //         isCurrent: index === 0,
-  //       }));
-  //     }
-
-  //     return res.status(200).json({
-  //       success: true,
-  //       data: {
-  //         stats: {
-  //           completedProposals: completedCount,
-  //           draftProposals: draftCount,
-  //           ongoingProposalStatus: activeProposal
-  //             ? activeProposal.status
-  //             : "None",
-  //         },
-  //         ongoingProposal: activeProposal
-  //           ? {
-  //               _id: activeProposal._id,
-  //               title: activeProposal.title,
-  //               timeline: timeline,
-  //             }
-  //           : null, // If null, the frontend can show "You have no ongoing proposals" text
-  //       },
-  //     });
-  //   } catch (error) {
-  //     console.error("getDashboardStats error:", error);
-  //     return res.status(500).json({ success: false, message: "Server error" });
-  //   }
-  // }
 
   static async getDashboardStats(req, res) {
     try {
@@ -518,18 +396,32 @@ class ResearcherController {
       const { title } = req.body;
       const researcherId = req.userId;
 
-      // Check if proposal already exists
-      const existingProposal = await Proposal.findOne({
+      // Check if the researcher has any ONGOING proposals
+      // $nin means "Not In" array. If a proposal exists that isn't Approved/Rejected, block creation.
+      const ongoingProposal = await Proposal.findOne({
         researcher: researcherId,
+        status: { $nin: ["Approved", "Rejected"] },
       });
 
-      if (existingProposal) {
+      if (ongoingProposal) {
         return res.status(400).json({
           success: false,
           message:
-            "You have already created a proposal. You can update it instead.",
+            "You currently have an ongoing proposal. You can only create a new one after your current proposal is Approved or Rejected.",
         });
       }
+
+      // // Check if proposal already exists
+      // const existingProposal = await Proposal.findOne({
+      //   researcher: researcherId,
+      // });
+
+      // if (existingProposal) {
+      //   return res.status(400).json({
+      //     success: false,
+      //     message: "You have already created a proposal.",
+      //   });
+      // }
 
       if (!title) {
         return res
