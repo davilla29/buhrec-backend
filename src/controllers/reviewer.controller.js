@@ -60,7 +60,19 @@ class ReviewerController {
             $group: {
               _id: null,
               accepted: {
-                $sum: { $cond: [{ $eq: ["$status", "accepted"] }, 1, 0] },
+                // Now counts "accepted", "in_progress", and "submitted"
+                $sum: {
+                  $cond: [
+                    {
+                      $in: [
+                        "$status",
+                        ["accepted", "in_progress", "submitted"],
+                      ],
+                    },
+                    1,
+                    0,
+                  ],
+                },
               },
               completed: {
                 $sum: { $cond: [{ $eq: ["$status", "submitted"] }, 1, 0] },
