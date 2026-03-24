@@ -4,7 +4,7 @@ import { Administrator } from "../models/Administrator.js";
 import { Reviewer } from "../models/Reviewer.js";
 
 export const verifyToken = async (req, res, next) => {
-  const token = req.cookies?.token;
+  const token = req.cookies?.token || req.headers.authorization?.split(" ")[1];
 
   if (!token) {
     return res
