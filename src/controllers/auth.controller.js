@@ -159,7 +159,7 @@ class AuthController {
         });
       }
 
-      generateTokenAndSetCookie(res, user._id, "researcher");
+     const token = generateTokenAndSetCookie(res, user._id, "researcher");
 
       // Update lastLoginAt
       try {
@@ -177,6 +177,7 @@ class AuthController {
       return res.status(200).json({
         success: true,
         message: "Login successful",
+        token,
         data: safeUser,
       });
     } catch (error) {
@@ -260,7 +261,7 @@ class AuthController {
         });
       }
 
-      generateTokenAndSetCookie(res, user._id, "reviewer");
+      const token = generateTokenAndSetCookie(res, user._id, "reviewer");
 
       try {
         await Reviewer.updateOne(
@@ -277,6 +278,7 @@ class AuthController {
       return res.status(200).json({
         success: true,
         message: "Login successful",
+        token,
         data: safeUser,
       });
     } catch (error) {
@@ -360,7 +362,7 @@ class AuthController {
         });
       }
 
-      generateTokenAndSetCookie(res, user._id, "admin");
+      const token = generateTokenAndSetCookie(res, user._id, "admin");
 
       try {
         await Administrator.updateOne(
@@ -377,6 +379,7 @@ class AuthController {
       return res.status(200).json({
         success: true,
         message: "Login successful",
+        token,
         data: safeUser,
       });
     } catch (error) {
