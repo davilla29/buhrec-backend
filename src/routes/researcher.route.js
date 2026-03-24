@@ -1,4 +1,3 @@
-// routes/researcherProposalRoutes.js
 import express from "express";
 import { verifyToken, isResearcher } from "../middlewares/auth.middleware.js";
 import { uploadProposalDocs } from "../middlewares/uploadProposalDocs.js";
@@ -39,11 +38,7 @@ router.patch(
 router.get("/profile", ResearcherController.getProfile);
 
 // --- UPDATED: Update profile with Photo Middleware ---
-router.put(
-  "/profile",
-  updateProfilePhoto,
-  ResearcherController.updateProfile,
-);
+router.put("/profile", updateProfilePhoto, ResearcherController.updateProfile);
 
 // Update password (requires current password)
 router.put("/password", ResearcherController.updatePassword);

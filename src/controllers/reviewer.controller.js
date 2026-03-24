@@ -555,91 +555,6 @@ class ReviewerController {
   }
 
   // Comment on proposal + optionally request changes
-  // static async addComment(req, res) {
-  //   try {
-  //     const { assignmentId } = req.params;
-  //     const reviewerId = req.userId;
-
-  //     const {
-  //       proposalVersionId,
-  //       comment: commentText,
-  //       fieldPath = "",
-  //       severity = "minor",
-  //       requestsChange = false,
-  //     } = req.body;
-
-  //     if (!proposalVersionId || !isValidObjectId(proposalVersionId)) {
-  //       return res.status(400).json({
-  //         success: false,
-  //         message: "proposalVersionId is required",
-  //       });
-  //     }
-  //     if (!commentText || !String(commentText).trim()) {
-  //       return res
-  //         .status(400)
-  //         .json({ success: false, message: "message is required" });
-  //     }
-
-  //     const assignment = await getReviewerAssignmentOr404(
-  //       assignmentId,
-  //       reviewerId,
-  //     );
-  //     if (!assignment) {
-  //       return res
-  //         .status(404)
-  //         .json({ success: false, message: "Assignment not found" });
-  //     }
-
-  //     if (
-  //       !["accepted", "in_progress", "submitted"].includes(assignment.status)
-  //     ) {
-  //       return res.status(400).json({
-  //         success: false,
-  //         message: "Accept the assignment before commenting",
-  //       });
-  //     }
-
-  //     // Ensure version belongs to proposal
-  //     const version = await ProposalVersion.findOne({
-  //       _id: proposalVersionId,
-  //       proposal: assignment.proposal._id,
-  //       kind: "submitted",
-  //     }).lean();
-
-  //     if (!version) {
-  //       return res
-  //         .status(404)
-  //         .json({ success: false, message: "Proposal version not found" });
-  //     }
-
-  //     // Mark in progress if needed
-  //     if (assignment.status === "accepted") {
-  //       assignment.status = "in_progress";
-  //       await assignment.save();
-  //     }
-
-  //     const newComment = await ReviewComment.create({
-  //       proposal: assignment.proposal._id,
-  //       proposalVersion: version._id,
-  //       assignment: assignment._id,
-  //       reviewer: reviewerId,
-  //       fieldPath: String(fieldPath || "").trim(),
-  //       comment: String(commentText).trim(),
-  //       severity,
-  //       requestsChange: Boolean(requestsChange),
-  //       isVisibleToResearcher: true,
-  //     });
-
-  //     return res
-  //       .status(201)
-  //       .json({ success: true, message: "Comment added", newComment });
-  //   } catch (error) {
-  //     console.log("addComment error:", error);
-  //     return res.status(500).json({ success: false, message: error.message });
-  //   }
-  // }
-
-  // Comment on proposal + optionally request changes
   static async addComment(req, res) {
     try {
       const { assignmentId } = req.params;
@@ -982,38 +897,6 @@ class ReviewerController {
       return res.status(500).json({ success: false, message: "Server error" });
     }
   }
-
-  // static async getResponses(req, res) {
-  //   try {
-  //     const reviewerId = req.userId;
-
-  //     // 1. Find assignments for this reviewer that are active or completed.
-  //     // Added "submitted" to include assignments you've already made a final decision on.
-  //     const assignments = await ReviewAssignment.find({
-  //       reviewer: reviewerId,
-  //       status: { $in: ["accepted", "in_progress", "submitted"] },
-  //     }).select("proposal");
-
-  //     const proposalIds = assignments.map((a) => a.proposal);
-
-  //     // 2. Filter proposals that have a versionCount > 1 (meaning they were updated)
-  //     // Removed the strict 'status: "Under Review"' filter to show all historical responses.
-  //     const responses = await Proposal.find({
-  //       _id: { $in: proposalIds },
-  //       versionCount: { $gt: 1 },
-  //       lastStatusChangedBy: reviewerId, // Ensures YOU were the one who interacted with it
-  //     }).sort({ updatedAt: -1 });
-
-  //     return res.status(200).json({
-  //       success: true,
-  //       count: responses.length,
-  //       responses,
-  //     });
-  //   } catch (error) {
-  //     console.error("getResponses error:", error);
-  //     return res.status(500).json({ success: false, message: "Server error" });
-  //   }
-  // }
 }
 
 export default ReviewerController;

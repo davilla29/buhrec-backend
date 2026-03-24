@@ -1,4 +1,3 @@
-// routes/adminRoutes.js
 import express from "express";
 import AdminController from "../controllers/admin.controller.js";
 import { uploadReviewerPhoto } from "../middlewares/upload.js";
@@ -76,7 +75,7 @@ router.get(
   "/reviewers/:reviewerId/assignments",
   verifyToken,
   isAdmin,
-  AdminController.getReviewerAssignments
+  AdminController.getReviewerAssignments,
 );
 
 // Get specific assignment details (Admin view of reviewer's work)
@@ -84,7 +83,7 @@ router.get(
   "/assignments/:assignmentId/details",
   verifyToken,
   isAdmin,
-  AdminController.getAssignmentDetails
+  AdminController.getAssignmentDetails,
 );
 
 // Get all details for a specific proposal for the admin view

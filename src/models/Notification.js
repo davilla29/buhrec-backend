@@ -1,41 +1,3 @@
-// import mongoose from "mongoose";
-
-// const notificationSchema = new mongoose.Schema(
-//   {
-//     title: {
-//       type: String,
-//       required: true,
-//     },
-//     message: {
-//       type: String,
-//       required: true,
-//     },
-//     proposalId: {
-//       type: mongoose.Schema.Types.ObjectId,
-//       ref: "Proposal",
-//     },
-//     sender: {
-//       type: mongoose.Schema.Types.ObjectId,
-//       ref: "User",
-//     },
-//     receiver: {
-//       type: mongoose.Schema.Types.ObjectId,
-//       ref: "User",
-//     },
-//     role: {
-//       type: String,
-//       enum: ["admin", "reviewer", "researcher"],
-//     },
-//     isRead: {
-//       type: Boolean,
-//       default: false,
-//     },
-//   },
-//   { timestamps: true },
-// );
-
-// export const Notification = mongoose.model("Notification", notificationSchema);
-
 import mongoose from "mongoose";
 
 const notificationSchema = new mongoose.Schema(
@@ -57,7 +19,7 @@ const notificationSchema = new mongoose.Schema(
       ref: "Proposal",
     },
 
-    // ✅ Dynamic sender reference
+    // Dynamic sender reference
     sender: {
       type: mongoose.Schema.Types.ObjectId,
       required: true,
@@ -69,7 +31,7 @@ const notificationSchema = new mongoose.Schema(
       enum: ["Researcher", "Reviewer", "Administrator"],
     },
 
-    // ✅ Dynamic receiver reference
+    // Dynamic receiver reference
     receiver: {
       type: mongoose.Schema.Types.ObjectId,
       required: true,
@@ -90,7 +52,6 @@ const notificationSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// Useful index for fetching user notifications fast
 notificationSchema.index({ receiver: 1, createdAt: -1 });
 
 export const Notification = mongoose.model("Notification", notificationSchema);
