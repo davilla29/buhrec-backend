@@ -1,4 +1,3 @@
-// routes/auth.routes.js
 import express from "express";
 import AuthController from "../controllers/auth.controller.js";
 import { verifyToken } from "../middlewares/auth.middleware.js";
@@ -11,7 +10,7 @@ router.post("/login/researcher", AuthController.researcherLogin);
 router.post("/login/reviewer", AuthController.reviewerLogin);
 router.post("/login/admin", AuthController.adminLogin);
 
-// Researcher signup 
+// Researcher signup
 router.post("/researcher/register", AuthController.researcherRegister);
 
 // Admin signup

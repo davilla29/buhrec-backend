@@ -1,4 +1,3 @@
-// models/Proposal.js
 import mongoose from "mongoose";
 
 const proposalSchema = new mongoose.Schema(

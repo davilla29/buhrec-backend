@@ -1,4 +1,3 @@
-// models/Reviewer.js
 import mongoose from "mongoose";
 
 const reviewerSchema = new mongoose.Schema(
@@ -13,12 +12,11 @@ const reviewerSchema = new mongoose.Schema(
     },
     password: { type: String, required: true, select: false },
 
-    // matches UI: single name input
     fullName: { type: String, required: true, trim: true },
 
     institution: { type: String, required: true, trim: true },
 
-    title: { type: String, required: true, trim: true }, // "Reviewer Title"
+    title: { type: String, required: true, trim: true },
     specialization: {
       type: String,
       required: true,
@@ -27,7 +25,6 @@ const reviewerSchema = new mongoose.Schema(
     },
     yearsOfExperience: { type: Number, required: true, min: 0 },
 
- 
     photoUrl: { type: String, default: "" },
     photoPublicId: { type: String, default: "" },
 

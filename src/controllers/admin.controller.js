@@ -12,7 +12,7 @@ import { sendAccountCreationEmail } from "../mail/emailService.js";
 import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
 import NotificationController from "./notification.controller.js";
 
-// small sanitize helper (don’t return password/photo buffer)
+// sanitize helper
 const sanitizeReviewer = (r) => ({
   _id: r._id,
   email: r.email,
@@ -25,7 +25,6 @@ const sanitizeReviewer = (r) => ({
   isActive: r.isActive,
   createdAt: r.createdAt,
   updatedAt: r.updatedAt,
-  // hasPhoto: Boolean(r.photo?.data),
   photoUrl: r.photoUrl || "",
   hasPhoto: Boolean(r.photoUrl),
 });
@@ -263,7 +262,7 @@ class AdminController {
         yearsOfExperience,
       } = req.body;
 
-      // Basic validation (matching your UI)
+      // Basic validation
       if (
         !fullName ||
         !email ||
@@ -313,10 +312,8 @@ class AdminController {
 
       if (req.file?.buffer) {
         const uploaded = await uploadBufferToCloudinary(req.file.buffer, {
-          folder: "buhrec/reviewers", // change to your folder style
+          folder: "buhrec/reviewers",
           resource_type: "image",
-          // optional: force transformations
-          // transformation: [{ width: 500, height: 500, crop: "fill" }],
         });
 
         photoUrl = uploaded.secure_url;
@@ -433,94 +430,6 @@ class AdminController {
   }
 
   // To get specific details about a reviewer
-  // static async getReviewerById(req, res) {
-  //   try {
-  //     const { id } = req.params;
-
-  //     // 1. Fetch Reviewer with all fields expected by the Modal
-  //     const reviewer = await Reviewer.findById(id)
-  //       .select(
-  //         "fullName email title specialization institution yearsOfExperience photoUrl isActive createdAt",
-  //       )
-  //       .lean();
-
-  //     if (!reviewer) {
-  //       return res.status(404).json({
-  //         success: false,
-  //         message: "Reviewer not found",
-  //       });
-  //     }
-
-  //     // 2. Assignment statistics aggregation
-  //     // Using new mongoose.Types.ObjectId guarantees the aggregate $match works
-  //     const stats = await ReviewAssignment.aggregate([
-  //       {
-  //         $match: { reviewer: new mongoose.Types.ObjectId(id) },
-  //       },
-  //       {
-  //         $group: {
-  //           _id: "$status",
-  //           count: { $sum: 1 },
-  //         },
-  //       },
-  //     ]);
-
-  //     // 3. Initialize default stats map exactly as the frontend expects
-  //     const statsMap = {
-  //       accepted: 0,
-  //       completed: 0,
-  //       incomplete: 0,
-  //       pendingFeedback: 0,
-  //     };
-
-  //     // 4. Map DB enum statuses to the frontend stats map
-  //     stats.forEach((s) => {
-  //       if (!s._id) return;
-
-  //       const status = s._id.toLowerCase();
-
-  //       switch (status) {
-  //         case "accepted":
-  //         case "in_progress":
-  //           // They accepted the assignment and are currently working on it
-  //           statsMap.accepted += s.count;
-  //           break;
-
-  //         case "submitted":
-  //           // They successfully finished and submitted the review
-  //           statsMap.completed += s.count;
-  //           break;
-
-  //         case "assigned":
-  //           // Assigned to them, but waiting for them to accept/reject
-  //           statsMap.pendingFeedback += s.count;
-  //           break;
-
-  //         case "rejected":
-  //         case "withdrawn":
-  //           // They declined the assignment or backed out
-  //           statsMap.incomplete += s.count;
-  //           break;
-  //       }
-  //     });
-
-  //     // 5. Send final payload
-  //     return res.status(200).json({
-  //       success: true,
-  //       data: {
-  //         ...reviewer,
-  //         statistics: statsMap,
-  //       },
-  //     });
-  //   } catch (error) {
-  //     console.error("Get reviewer details error:", error);
-  //     return res.status(500).json({
-  //       success: false,
-  //       message: "Server error",
-  //     });
-  //   }
-  // }
-
   static async getReviewerById(req, res) {
     try {
       const { id } = req.params;
@@ -608,7 +517,7 @@ class AdminController {
       });
     }
   }
-  
+
   // Get all proposals
   static async getAllProposals(req, res) {
     try {
@@ -726,10 +635,7 @@ class AdminController {
 
       // Proposal must be paid/submitted-ish before assigning
       // Adjust if your flow allows assignment at other stages
-      const assignableStatuses = [
-        "Paid",
-        "Waiting to be assigned",
-      ];
+      const assignableStatuses = ["Paid", "Waiting to be assigned"];
       if (!assignableStatuses.includes(proposal.status)) {
         return res.status(400).json({
           success: false,

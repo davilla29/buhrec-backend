@@ -2,7 +2,6 @@ import { Proposal } from "../models/Proposal.js";
 import axios from "axios";
 
 class PaymentController {
-  // Flutterwave redirect callback: /flutterwave/callback?status=successful&tx_ref=...&transaction_id=...
   static async flutterwaveCallback(req, res) {
     try {
       const { status, tx_ref, transaction_id } = req.query;
@@ -64,9 +63,9 @@ class PaymentController {
       proposal.payment.raw = verification;
       await proposal.save();
 
-     return res.redirect(
-       `${process.env.FRONTEND_URL_DEV}/researcher/dashboard/proposals/${proposal._id}/payment-failed`,
-     );
+      return res.redirect(
+        `${process.env.FRONTEND_URL_DEV}/researcher/dashboard/proposals/${proposal._id}/payment-failed`,
+      );
     } catch (err) {
       console.log(
         "flutterwaveCallback error:",

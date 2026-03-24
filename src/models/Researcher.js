@@ -1,12 +1,9 @@
-// models/Researcher.js
 import mongoose from "mongoose";
 
 const researcherSchema = new mongoose.Schema(
   {
-    // Matches UI (single "Name" field)
     fullName: { type: String, required: true, trim: true },
 
-    // Matches UI ("Date of Birth")
     dateOfBirth: { type: Date, required: true },
 
     email: {
